@@ -1,0 +1,215 @@
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF UI Text", "Helvetica Neue", Arial, sans-serif;
+    background-color: #F5F7F9;
+}
+
+/* Home Banner Styling*/
+
+.hero-banner {
+    background: linear-gradient(90deg, #444CE7 0%, #FFFFFF 100%);
+    min-height: auto;
+}
+
+.hero-banner h2 {
+    font-size: 2rem;
+    line-height: 1.3;
+}
+
+.hero-banner p {
+    font-size: 1.1rem;
+    line-height: 1.6;
+}
+
+footer {
+    background: #FFFFFF;
+    padding: 20px 0;
+    text-align: center;
+    font-size: 14px;
+    color: #666;
+}
+
+/* Search Box Styling */
+
+.search-box .btn-search {
+    background-color: #444CE7;
+    color: #fff;
+    border: 2px solid #444CE7;
+    transition: background-color 0.2s ease;
+}
+
+.search-box .btn-search:hover {
+    background-color: #979ef7;
+    color: #fff;
+    border-color: #979ef7;
+}
+
+/* Card Box Styling */
+
+.features .card {
+    border: 1px solid #eee;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    transition: transform 0.2s ease;
+    border-radius: 20px;
+    padding: 0px 20px 20px 20px;
+    overflow: hidden; 
+}
+
+.features .card:hover {
+    transform: translateY(-5px);
+}
+
+.features .card-footer {
+    border-top: none;
+    background-color: #fff;
+}
+
+/* Sidebar styling */
+
+.sidebar-filters {
+    height: calc(100vh - 200px);
+    overflow-y: auto;
+    position: sticky;
+    top: 80px;
+}
+
+/* Customize slider colors */
+
+.noUi-connect {
+  background: #979ef7;
+}
+
+.noUi-handle {
+  background: #444CE7;
+  width: 10px; 
+  height: 10px;
+  box-shadow: none;
+  border: none;
+  cursor: pointer;
+}
+
+.noUi-tooltip {
+  background: transparent;
+  border: none;
+  color: #444CE7;
+  font-size: 0.75rem;
+  font-weight: normal;
+  padding: 0;
+  font-weight: bold;
+}
+
+/* Changing checkbox tick & background when checked */
+.form-check-input:checked {
+  background-color: #444CE7;
+  border-color: #444CE7;
+}
+
+/* Global link color */
+a {
+  color: #444CE7;
+  text-decoration: none;
+}
+
+a:hover, 
+a:focus {
+  color: #2f34a6;
+  text-decoration: underline;
+}
+
+/* Results Table Styling */
+.results-table table {
+  font-size: 0.9rem;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.results-table thead {
+  background-color: #444CE7;
+  color: #fff;
+}
+
+.results-table thead th {
+  font-weight: 600;
+  text-transform: none;
+  font-size: 0.85rem;
+  padding: 10px;
+}
+
+.results-table tbody tr:nth-child(even) {
+  background-color: #f8f9fa;
+}
+
+.results-table tbody tr:hover {
+  background-color: #f1f5ff;
+}
+
+.results-table a {
+  color: #444CE7;
+  text-decoration: none;
+}
+
+.results-table a:hover {
+  text-decoration: underline;
+}
+
+/* Pagination */
+.pagination .page-link {
+  color: #444CE7;
+  border: none;
+  background: transparent;
+}
+
+.pagination .page-item.active .page-link {
+  background-color: #444CE7;
+  border-radius: 50%;
+  color: #fff;
+}
+
+.pagination .page-item.disabled .page-link {
+  color: #aaa;
+}
+
+/* Toolbar styling */
+.table-toolbar {
+  background: #f8f9fa;
+  padding: 8px 12px;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+}
+
+.table-toolbar .btn-outline-primary {
+  color: #444CE7;
+  border-color: #444CE7;
+}
+
+.table-toolbar .btn-outline-primary:hover {
+  background-color: #444CE7;
+  color: #fff;
+}
+
+.dropdown-toggle::after {
+  display: none !important;
+}
+
+.custom-btn {
+  border-color: #444CE7 !important;
+}
+
+.custom-btn:hover,
+.custom-btn:focus {
+  background-color: #444CE7 !important;
+  border-color: #444CE7 !important;
+  color: #fff !important;
+}
+
+.code-wrap { white-space: pre-wrap; word-break: break-word; }
+
+.fx-checkgrid{
+  display: grid;
+  grid-template-columns: repeat(3, minmax(14rem, 1fr));
+  gap: .75rem 1.25rem;
+  align-items: center;
+}
+@media (max-width: 992px){ .fx-checkgrid{ grid-template-columns: repeat(2, minmax(14rem,1fr)); } }
+@media (max-width: 576px){ .fx-checkgrid{ grid-template-columns: 1fr; } }
+
+.fx-checkgrid .form-check{ margin: 0; }

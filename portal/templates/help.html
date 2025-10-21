@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-4">
+  <!-- Header -->
+  <div class="row mb-3">
+    <div class="col-12 col-lg-10 mx-auto">
+      <h1 class="fw-bold mb-3">Help</h1>
+
+      <!-- Search -->
+      <form class="input-group mb-4" method="get" action="{% url 'help' %}">
+        <input name="q"
+               value="{{ q|default:'' }}"
+               type="search"
+               class="form-control form-control-lg"
+               placeholder="Search help topics, e.g. 'Extract features', 'Explore sequence'">
+        <button class="btn btn-primary btn-lg" type="submit">
+          <i class="bi bi-search me-1"></i> Search
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Featured cards -->
+  <div class="row mb-4">
+    
+    <div class="col-12 col-md-6">
+      <div class="card h-100 shadow-sm">
+        <div class="card-body d-flex flex-column">
+          <div class="d-flex align-items-center mb-2">
+            <i class="bi bi-play-circle fs-3 me-2 text-primary"></i>
+            <h5 class="card-title mb-0">Getting started</h5>
+          </div>
+          <p class="text-muted mb-3">
+            A quick tour of RNA-Explorer and how to extract, and explore sequence records.
+          </p>
+          <div class="mt-auto">
+            <a href="{% url 'help_getting_started' %}" class="btn btn-outline-primary w-100">More</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-md-6">
+      <div class="card h-100 shadow-sm">
+        <div class="card-body d-flex flex-column">
+          <div class="d-flex align-items-center mb-2">
+            <i class="bi bi-info-circle fs-3 me-2 text-primary"></i>
+            <h5 class="card-title mb-0">About us</h5>
+          </div>
+          <p class="text-muted mb-3">
+            Learn about the project, contributors, and how to get in touch with the team.
+          </p>
+          <div class="mt-auto">
+            <a href="{% url 'about' %}" class="btn btn-outline-primary w-100">More</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FAQ / Results -->
+  <div class="row">
+    <div class="col-12 col-lg-10 mx-auto">
+      {% if faqs %}
+      <h5 class="mb-3">Help topics{% if q %} for “{{ q }}”{% endif %}</h5>
+      <div class="accordion" id="helpAccordion">
+        {% for item in faqs %}
+          <div class="accordion-item">
+            <h2 class="accordion-header" id="h{{ forloop.counter }}">
+              <button class="accordion-button {% if not forloop.first %}collapsed{% endif %}"
+                      type="button"
+                      data-bs-toggle="collapse"
+                      data-bs-target="#c{{ forloop.counter }}">
+                {{ item.title }}
+              </button>
+            </h2>
+            <div id="c{{ forloop.counter }}"
+                 class="accordion-collapse collapse {% if forloop.first %}show{% endif %}"
+                 data-bs-parent="#helpAccordion">
+              <div class="accordion-body">
+                {{ item.body|safe }}
+              </div>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+      {% else %}
+        <div class="alert alert-light border text-muted">
+          {% if q %}No help topics matched “{{ q }}”. Try another query.{% else %}
+          Browse featured topics above or use the search box to find answers.
+          {% endif %}
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

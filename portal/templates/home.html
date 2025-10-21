@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+
+<section class="hero-banner d-flex align-items-center px-4">
+  <div class="container-fluid">
+    <div class="row align-items-center">
+      <!-- Left Text -->
+      <div class="col-lg-6 text-white">
+        <h2 class="fw-bold mb-4">Welcome to the RNA-Explorer Portal</h2>
+        <p>
+          The RNA-Explorer Portal is designed to empower the scientific and bioinformatics community by providing access to extract and explore RNA sequences. Our platform enables researchers to analyze, and visualize
+          genetic sequences with advanced computational tools.
+        </p>
+      </div>
+      <div class="col-lg-2"></div>
+      <!-- Right Image -->
+      <div class="col-lg-4 text-center">
+        <img src="{% static 'images/banner-illustration.png' %}" alt="RNA Verse Illustration" class="img-fluid" style="max-height: 350px; width: auto;">
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Features -->
+<section class="features py-4 px-4">
+    <div class="container-fluid">
+        <h2 class="mb-4">Features</h2>
+        <div class="row g-4">
+            <!-- Feature 1 -->
+            <div class="col-md-4">
+                <div class="card h-100 shadow-sm border-0">
+                    <img src="{% static 'images/cardImage1.png' %}" class="card-img-top" alt="Search & Explore" style="max-height: 200px; object-fit: contain; padding: 10px;">
+                    <div class="card-body">
+                        <h5 class="card-title fw-bold">Extract Features</h5>
+                        <p class="card-text text-muted">
+                            Analyze sequences by computing Sequential and Positional features like GC content, K-mer frequency, Mononucleotide composition and more with the help of UMAP.
+                        </p>
+                    </div>
+                    <div class="card-footer bg-white border-0">
+                        <a href="{% url 'feature_extractor' %}" class="text-primary fw-semibold">Launch Extractor</a>
+                    </div>
+                </div>
+            </div>
+            <!-- Feature 2 -->
+            <div class="col-md-4">
+                <div class="card h-100">
+                    <img src="{% static 'images/cardImage2.png' %}" class="card-img-top" alt="Search & Explore" style="max-height: 200px; object-fit: contain; padding: 10px;">
+                    <div class="card-body">
+                        <h5 class="card-title fw-bold">Explore Features</h5>
+                        <p class="card-text text-muted">
+                         Explore sequences with the help of RNA-FM foundation model embeddings and visualize sequence embedding with t-SNE plot.
+                        </p>
+                    </div>
+                    <div class="card-footer bg-white border-0 d-flex gap-3">
+                        <a href="{% url 'feature_explorer' %}" class="text-primary fw-semibold">Launch Explorer</a>
+                    </div>
+                </div>
+            </div>
+            <!-- Feature 3 -->
+            <div class="col-md-4">
+                <div class="card h-100">
+                    <img src="{% static 'images/cardImage3.png' %}" class="card-img-top" alt="Search & Explore" style="max-height: 200px; object-fit: contain; padding: 10px;">
+                    <div class="card-body">
+                        <h5 class="card-title fw-bold">Download Data</h5>
+                        <p class="card-text text-muted">
+                        Download calculated sequence features or RNA-FM embeddings for further research and analysis.
+                        </p>
+                    </div>
+                    {% comment %} <div class="card-footer bg-white border-0 d-flex gap-3">
+                        <a href="#" class="text-primary fw-semibold">Visit Download Page</a>
+                    </div> {% endcomment %}
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+
+{% endblock %}

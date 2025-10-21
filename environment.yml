@@ -1,0 +1,20 @@
+name: DjangoEnv
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - python=3.11
+  - pip
+  - pip:
+      - django
+      - djangorestframework
+      - psycopg2-binary 
+      - gunicorn
+      - whitenoise
+      - biopython
+      - requests
+      - pandas
+      - jinja2
+      - scikit-learn
+      - torch
+      - rna-fm

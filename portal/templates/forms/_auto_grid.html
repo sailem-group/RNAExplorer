@@ -1,0 +1,76 @@
+<!-- templates/forms/_auto_grid.html -->
+{% load form_extras %}
+
+{% if form.non_field_errors %}
+  <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+{% endif %}
+
+<div class="row g-3">
+  {% for field in form %}
+    {% with wtype=field|widget_type itype=field|input_type %}
+      <div class="col-12 col-md-6">
+
+        {% if not field|is_checkbox %}
+          {% if field.label %}
+            <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
+          {% endif %}
+        {% endif %}
+
+        <!-- Radio group -->
+        {% if field|is_radio %}
+          <div>
+            {% for sub in field %}
+              <div class="form-check form-check-inline">
+                {{ sub.tag }}
+                <label class="form-check-label ms-1" for="{{ sub.id_for_label }}">{{ sub.choice_label }}</label>
+              </div>
+            {% endfor %}
+          </div>
+
+        <!-- Checkbox -->
+        {% elif field|is_checkbox %}
+          <div class="form-check">
+            {{ field|add_attrs:"class:form-check-input" }}
+            <label class="form-check-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+          </div>
+
+        <!--Checkbox group -->
+        {% elif field|is_checkbox_multiple %}
+          <div>
+            {% for sub in field %}
+              <div class="form-check">
+                {{ sub.tag }}
+                <label class="form-check-label ms-1" for="{{ sub.id_for_label }}">{{ sub.choice_label }}</label>
+              </div>
+            {% endfor %}
+          </div>
+
+        <!-- Select / multi-select -->
+        {% elif field|is_select or field|is_select_multiple %}
+          {{ field|add_attrs:"class:form-select" }}
+
+        <!-- Textarea -->
+        {% elif field|is_textarea %}
+          {{ field|add_attrs:"class:form-control" }}
+
+        {% else %}
+          {% if field.errors %}
+            {{ field|add_attrs:"class:form-control is-invalid" }}
+          {% else %}
+            {{ field|add_attrs:"class:form-control" }}
+          {% endif %}
+        {% endif %}
+
+        {% if field.help_text %}
+          <div class="form-text">{{ field.help_text|safe }}</div>
+        {% endif %}
+
+        {% if field.errors %}
+          {% for err in field.errors %}
+            <div class="invalid-feedback d-block">{{ err }}</div>
+          {% endfor %}
+        {% endif %}
+      </div>
+    {% endwith %}
+  {% endfor %}
+</div>
