@@ -62,7 +62,7 @@ class FeatureExtractorForm(Bootstrap5FormMixin, forms.Form):
     # Paste / upload inputs
     sequences_text = forms.CharField(
         required=False,
-        widget=forms.Textarea(attrs={"rows": 8, "placeholder": "SEQ1...\n>header\nSEQ2..."}),
+        widget=forms.Textarea(attrs={"rows": 8, "placeholder": " >sequenceID-001 description \nAAGTAGGAATAATATCTTATCATTA \n >sequenceID-002 description \nACGACTAGACATATATCAGCTCGC"}),
         label="Sequences",
     )
     file = forms.FileField(required=False, label="Upload file")

@@ -1,0 +1,608 @@
+{% extends "base.html" %}
+{% load static %}
+{% block content %}
+<style>
+  /* Full page blocker */
+  #pageBlocker {
+    position: fixed; inset: 0;
+    background: rgba(255,255,255,0.7);
+    display: none; align-items: center; justify-content: center;
+    z-index: 2000;
+    backdrop-filter: blur(1px);
+  }
+  #pageBlocker.show { display: flex; }
+  .example-chip {
+    display:inline-block; border:1px solid rgba(0,0,0,.15); border-radius:.5rem;
+    padding:.15rem .5rem; margin:.125rem .25rem 0 0; font-size:.85rem;
+    background:#fff; cursor:pointer; user-select:none; white-space:nowrap;
+  }
+  .example-chip:hover { background:#f6f7f9; }
+</style>
+
+<div id="pageBlocker" aria-hidden="true">
+  <div class="text-center">
+    <div class="spinner-border" role="status" aria-label="Loading"></div>
+    <div class="mt-2 fw-semibold">Working…</div>
+  </div>
+</div>
+
+<div class="container-fluid py-3">
+  <div class="row g-2">
+
+    <div class="col-12 col-lg-3 px-0 px-lg-2">
+      <div class="card shadow-sm mb-2">
+        <div class="card-body p-3">
+
+          <h4 class="mb-1">Visualise sequences
+            <span class="ms-2 align-middle" role="button" tabindex="0"
+                  data-bs-toggle="tooltip" data-bs-placement="right"
+                  title="Project your sequences into a reference RNA-FM t-SNE and an interpretable-features t-SNE. We’ll overlay up to 10 sequences on precomputed maps.">
+              <i class="bi bi-info-circle"></i>
+            </span>
+          </h4>
+
+          <form method="post" enctype="multipart/form-data" id="vizForm" class="mb-3">
+            {% csrf_token %}
+            <input type="hidden" name="__panel__" value="both">
+
+            <div class="mb-2">
+              <label class="form-label">Input source</label>
+              <select name="input_mode" class="form-select" id="modeSel">
+                <option value="text">Paste sequences</option>
+                <option value="fasta">Upload FASTA file</option>
+                <option value="csv">Upload CSV file</option>
+              </select>
+            </div>
+
+            <div id="pasteBlk" class="mb-2">
+              <label class="form-label">
+                Sequences (max 10)
+              </label>
+              <div class="d-flex justify-content-between align-items-center mb-1">
+                  <span class="ms-2 text-muted small">Try an example → </span>
+                  <div id="vizExamples" class="form-text mt-1"></div>
+              </div>
+              {{ form.sequences_text }}
+            </div>
+
+            <div id="fastaBlk" class="mb-2 d-none">
+              <input type="file" name="file" accept=".fa,.fasta,.txt" class="form-control">
+            </div>
+
+            <div id="csvBlk" class="mb-2 d-none">
+              <input type="file" name="file" accept=".csv" class="form-control">
+              <div class="form-text">CSV must contain a <code>sequence</code> column.</div>
+            </div>
+
+            <button class="btn btn-primary w-100 mt-2 mb-3" type="submit">Overlay / Visualize</button>
+          </form>
+
+          <form id="featForm" class="px-2 mb-3">
+              <label class="form-label">Select interpretable features</label>
+              {% csrf_token %}
+              <input type="hidden" name="__panel__" value="interp">
+              <div class="row row-cols-2">
+                {% for cb in form.features %}
+                  <div class="col mb-1">
+                    <div class="form-check">
+                      {{ cb.tag }}
+                      <label class="form-check-label ms-1" for="{{ cb.id_for_label }}">{{ cb.choice_label }}</label>
+                    </div>
+                  </div>
+                {% endfor %}
+              </div>
+            </form>
+
+          <hr class="my-3">
+
+          <h5 class="mb-2">Query sequence
+            <span class="ms-2 align-middle" role="button" tabindex="0"
+                  data-bs-toggle="tooltip" data-bs-placement="right"
+                  title="We’ll highlight reference sequences containing this subsequence in red on the RNA-FM plot.">
+              <i class="bi bi-info-circle"></i>
+            </span>
+          </h5>
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <small class="text-muted">Try an example →</small>
+            <div id="queryExamples" class="form-text"></div>
+          </div>
+          <form method="post" id="queryForm" class="mb-2">
+            {% csrf_token %}
+            <input type="hidden" name="__panel__" value="query">
+            <div class="mb-4">
+              <textarea id="querySeq" name="query_seq" class="form-control" rows="3"
+                        aria-describedby="queryLenErr" placeholder="Paste a single RNA sequence"></textarea>
+              <div id="queryLenErr" class="invalid-feedback">
+                Sequence must be less than or equal to 35 nucleotides.
+              </div>
+            </div>
+            <button id="querySubmit" class="btn btn-primary w-100" type="submit" disabled>
+              Find in reference
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    
+      <div class="col-12 col-lg-9 px-0 px-lg-2">
+        <div class="card shadow-sm">
+          <div class="card-body p-3">
+
+            <!-- Toolbar -->
+            <div class="d-flex flex-wrap gap-3 justify-content-between align-items-center px-1 mb-4">
+
+              <!-- Color-by checkboxes -->
+              <div class="d-flex align-items-center flex-wrap gap-2">
+                <span class="fw-semibold me-1">Color by:</span>
+                <div class="form-check form-check-inline">
+                  <input class="form-check-input" type="checkbox" id="cbSi" value="siRNA">
+                  <label class="form-check-label" for="cbSi">siRNA</label>
+                </div>
+                <div class="form-check form-check-inline">
+                  <input class="form-check-input" type="checkbox" id="cbMi" value="miRNA">
+                  <label class="form-check-label" for="cbMi">miRNA</label>
+                </div>
+                <div class="form-check form-check-inline">
+                  <input class="form-check-input" type="checkbox" id="cbPi" value="piRNA">
+                  <label class="form-check-label" for="cbPi">piRNA</label>
+                </div>
+              </div>
+
+              <!-- Downloads  -->
+              {% if has_user %}
+                <div class="d-flex align-items-center gap-2">
+                  <a href="{% url 'feature_explorer_download_embeddings' %}" class="btn btn-outline-secondary btn-sm">
+                    Download embeddings (.npy)
+                  </a>
+                  <a href="{% url 'feature_extractor_download' %}" class="btn btn-outline-secondary btn-sm">
+                    Download features (.csv)
+                  </a>
+                </div>
+              {% endif %}
+            </div>
+
+
+            <!-- RNA-FM -->
+            <div class="px-2"><h5 class="mb-2">RNA-FM embedding</h5></div>
+            <div id="deepPlot" style="height:700px;"></div>
+
+            <hr class="my-3">
+
+            <!-- Interpretable plot-->
+            <div class="px-2"><h5 class="mb-2">Interpretable features embedding</h5></div>
+            <div id="interpPlot" style="height:700px;"></div>
+          </div>
+        </div>
+      </div>
+
+  </div>
+</div>
+
+<script type="module">
+  import Plotly from "https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/+esm";
+
+  function showPageBlocker(show = true) {
+    const el = document.getElementById("pageBlocker");
+    if (el) el.classList.toggle("show", !!show);
+  }
+
+  window.addEventListener("load",    () => showPageBlocker(false));
+  window.addEventListener("pageshow",() => showPageBlocker(false));
+
+  const seabornBg = {
+    paper_bgcolor: "rgba(0,0,0,0)",
+    plot_bgcolor: "rgba(230, 236, 245, 0.65)",
+    xaxis: { zeroline:false, gridcolor:"rgba(0,0,0,0.08)", linecolor:"rgba(0,0,0,0.35)" },
+    yaxis: { zeroline:false, gridcolor:"rgba(0,0,0,0.08)", linecolor:"rgba(0,0,0,0.35)" },
+    margin: {l:50,r:10,t:10,b:60}
+  };
+
+  const TYPE_COLORS = { siRNA:"#1F77B4", miRNA:"#FF7F0E", piRNA:"#2CA02C" };
+  const TYPE_COLORS_DIM = { siRNA:"#C1D3F5", miRNA:"#F3D0C4", piRNA:"#93D1BD" };
+  const GREY_LINE = "rgba(180, 179, 179, 0.85)";
+
+  const VIZ_EXAMPLES = [
+    {
+      label: "#1",
+      text:
+        `>seq_A\nGAACUUGAUGAAGAAUCUAUC\n>seq_B\nUAGCUACGUAGUACUUACUGAU\n>seq_c\nAUAUGCUAUGGCUAUGCUAAUGCUAGCUAU`
+    },
+    {
+      label: "#2",
+      text:
+        `>seq_A\nGGAUUCUACUGUUGAAGAAAU\n>seq_B\nUACGUUUGGUGUUGGAUCAAAU\n>seq_c\nUUACGUAGCUAUGCUAGUACUAGCUAUUGA`
+    },
+    {
+      label: "#3",
+      text:
+        `>seq_A\nUCAGUUGAUGGACAAUCUUGA\n>seq_B\nUAAUGCUAAUCGUGAUAGUCUA\n>seq_c\nUGUACUUGAUAUGCUAGCUAUGCUAUGUAA`
+    }
+  ];
+
+  const QUERY_EXAMPLES = [
+    { label: "#1", text: `AUUCUU` },
+    { label: "#2",  text: `UGAGG`  },
+    { label: "#3",     text: `UAAUGCU` }
+  ];
+
+  function renderExampleChips(containerId, items, onPick) {
+    const host = document.getElementById(containerId);
+    if (!host) return;
+    host.innerHTML = ""; // clear
+    items.forEach(it => {
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "example-chip btn btn-sm btn-light";
+      chip.textContent = it.label;
+      chip.addEventListener("click", () => onPick(it.text));
+      host.appendChild(chip);
+    });
+  }
+
+  function pickVizExample(text) {
+    const sel = document.getElementById("modeSel");
+    if (sel && sel.value !== "text") {
+      sel.value = "text";
+      sel.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+    const ta = document.querySelector('#vizForm textarea[name="sequences_text"]');
+    if (!ta) return;
+    ta.value = text;
+    ta.focus();
+    const n = countSeqs(text);
+    if (n > 10) alert(`This example has ${n} sequences. Only the first 10 will be processed.`);
+  }
+
+  function pickQueryExample(text) {
+    const ta = document.querySelector('#queryForm textarea[name="query_seq"]');
+    if (!ta) return;
+    ta.value = text;
+    ta.dispatchEvent(new Event('input', { bubbles: true }));
+    ta.focus();
+  }
+
+  renderExampleChips("vizExamples",   VIZ_EXAMPLES,   pickVizExample);
+  renderExampleChips("queryExamples", QUERY_EXAMPLES, pickQueryExample);
+
+  function selectedTypes(){
+    const ids = ["cbSi","cbMi","cbPi"];
+    const vals = ids.filter(id => document.getElementById(id)?.checked)
+                    .map(id => document.getElementById(id).value);
+    return new Set(vals);
+  }
+
+  function refTraces(refs, selSet){
+    const colorFor = (type)=>{
+      if (!selSet || selSet.size===0) return TYPE_COLORS_DIM[type] || GREY_LINE;
+      return selSet.has(type) ? (TYPE_COLORS[type]||TYPE_COLORS_DIM[type]) : TYPE_COLORS_DIM[type];
+    };
+    const mkRef = (type) => {
+      const r = refs?.[type]; if(!r || !r.n) return null;
+      const text = r.seqs ?? r.names ?? Array.from({length: r.xs.length}, ()=> type);
+      return {
+        type:"scattergl", mode:"markers",
+        name: `${type} (${r.n}${typeof r.total==='number' ? ' / ' + r.total : ''})`,
+        x:r.xs, y:r.ys, text,
+        marker:{ symbol:"circle", size:7.5, opacity:0.9, color: colorFor(type), line:{width:0} },
+        hovertemplate:"%{text}<extra></extra>",
+      };
+    };
+    const t=[];
+    const si = mkRef("siRNA");
+    const mi = mkRef("miRNA");
+    const pi = mkRef("piRNA");
+    if (si) t.push(si);
+    if (mi) t.push(mi);
+    if (pi) t.push(pi);
+    return t;
+  }
+
+  function userTraces(user){
+    if (!user || !user.n) return [];
+    const textSrc = user.seqs ?? user.names ?? [];
+    const buckets = {};
+    for (let i=0;i<user.xs.length;i++){
+      const g = "Sequence";
+      if (!buckets[g]) buckets[g] = {
+        type:"scattergl", mode:"markers",
+        name:`${g}`, x:[], y:[], text:[],
+        hovertemplate:"%{text}<extra></extra>",
+        marker:{symbol:"circle", size:10, opacity:0.75, color:"red", line:{width:1, color:"rgba(100,0,0,0.7)"}}
+      };
+      buckets[g].x.push(user.xs[i]);
+      buckets[g].y.push(user.ys[i]);
+      buckets[g].text.push(textSrc[i] || "Sequence");
+    }
+    const arr = Object.values(buckets);
+    arr.forEach(tr => tr.name = `${tr.name} (${tr.x.length})`);
+    return arr;
+  }
+
+
+  function queryTrace(q){
+    if (!q || !q.n) return null;
+    const text = q.seqs ?? q.names ?? Array.from({length: q.xs.length}, ()=> "Query match");
+    return {
+      type:"scattergl", mode:"markers",
+      name:`Query matches (${q.n})`,
+      x:q.xs, y:q.ys, text,
+      marker:{symbol:"circle", size:10, opacity:0.75, color:"red", line:{width:1, color:"rgba(100,0,0,0.7)"}},
+      hovertemplate:"%{text}<extra></extra>"
+    };
+  }
+
+  function layoutCommon(){
+    return {
+      ...seabornBg,
+      showlegend:true,
+      legend:{
+        title:{text:"Dataset / Type"},
+        orientation:"v",
+        x: 1.02, xanchor:"left",
+        y: 1.0,  yanchor:"top",
+        bgcolor:"rgba(255,255,255,0.7)",
+        bordercolor:"rgba(0,0,0,0.15)",
+        borderwidth:1,
+        itemsizing:"constant"
+      },
+      xaxis:{...seabornBg.xaxis, title:{text:"Dimension 1", standoff:10}},
+      yaxis:{...seabornBg.yaxis, title:{text:"Dimension 2", standoff:10}},
+    };
+  }
+
+  let DEEP  = {{ deep_payload_json|default:"null"|safe }};
+  let INTERP= {{ interp_payload_json|default:"null"|safe }};
+  window.DEEP = DEEP;
+  window.INTERP = INTERP;
+
+  function renderPlots(){
+    const sel = selectedTypes();
+
+    const deepData = [];
+    if (DEEP?.refs) deepData.push(...refTraces(DEEP.refs, sel));
+    if (DEEP?.user) deepData.push(...userTraces(DEEP.user));
+    if (DEEP?.query){
+      const q = queryTrace(DEEP.query);
+      if (q) deepData.push(q);
+    }
+
+    const interpData = [];
+    if (INTERP?.refs) interpData.push(...refTraces(INTERP.refs, sel));
+    if (INTERP?.user) interpData.push(...userTraces(INTERP.user));
+    if (INTERP?.query) {
+      const q2 = queryTrace(INTERP.query);
+      if (q2) interpData.push(q2);
+    }
+    const p1 = Plotly.react("deepPlot", deepData, layoutCommon());
+    const p2 = Plotly.react("interpPlot", interpData, layoutCommon());
+
+    return Promise.all([p1, p2]);
+  }
+
+  showPageBlocker(true);
+  renderPlots().finally(() => showPageBlocker(false));
+
+  ["cbSi","cbMi","cbPi"].forEach(id=>{
+    document.getElementById(id)?.addEventListener("change", () => {
+      showPageBlocker(true);
+      renderPlots().finally(() => showPageBlocker(false));
+    });
+  });
+
+  function wireMode(selId, blocks){
+    const sel = document.getElementById(selId);
+    const show = v => Object.entries(blocks).forEach(([k,el])=> el.classList.toggle("d-none", k!==v));
+    sel.addEventListener("change", ()=>show(sel.value));
+    show(sel.value);
+  }
+  wireMode("modeSel", {text:document.getElementById("pasteBlk"), fasta:document.getElementById("fastaBlk"), csv:document.getElementById("csvBlk")});
+
+  function countSeqs(text){
+    const lines = text.split(/\r?\n/);
+    let c=0, inF=false;
+    for(const ln of lines){
+      if (ln.trim().startsWith(">")) { c+=1; inF=true; continue; }
+      if (!inF && ln.trim()) c+=1;
+    }
+    return Math.max(c, inF? (c||1) : c);
+  }
+  document.getElementById("vizForm")?.addEventListener("submit", (e)=>{
+    const mode = document.querySelector('#vizForm [name="input_mode"]')?.value;
+    if (mode==="text"){
+      const ta = document.querySelector('#vizForm textarea[name="sequences_text"]');
+      const n = countSeqs(ta?.value||"");
+      if (n>10){ e.preventDefault(); alert(`Please provide at most 10 sequences (you provided ${n}).`); }
+    }
+  });
+
+  [...document.querySelectorAll('[data-bs-toggle="tooltip"]')].forEach(el=>new bootstrap.Tooltip(el));
+
+  function getCookie(name) {
+    const m = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+    return m ? m.pop() : '';
+  }
+
+  function showBanner(msg) {
+    const id = "inlineBanner";
+    let el = document.getElementById(id);
+    if (!el) {
+      el = document.createElement("div");
+      el.id = id;
+      el.className = "alert alert-info mb-3";
+      const cardBody = document.querySelector(".card-body");
+      if (cardBody) cardBody.prepend(el);
+    }
+    el.textContent = msg || "";
+    el.style.display = msg ? "block" : "none";
+  }
+
+  async function ajaxSubmit(formEl) {
+    showPageBlocker(true);
+    try {
+      const fd = new FormData(formEl);
+      fd.set("__ajax__", "1");
+
+      const resp = await fetch(window.location.href, {
+        method: "POST",
+        headers: {
+          "X-CSRFToken": getCookie("csrftoken"),
+          "X-Requested-With": "XMLHttpRequest",
+        },
+        body: fd
+      });
+      if (!resp.ok) throw new Error(`Request failed (${resp.status})`);
+
+      const data = await resp.json();
+
+      if (data.deep)   { DEEP   = data.deep;   window.DEEP   = DEEP; }
+      if (data.interp) { INTERP = data.interp; window.INTERP = INTERP; }
+
+      await renderPlots();
+
+      const dlWrap = document.querySelector('[href$="feature_explorer_download_embeddings"]')?.closest(".d-flex");
+      if (dlWrap) dlWrap.style.display = data.has_user ? "" : "none";
+
+      showBanner(data.banner || "");
+
+      if (formEl.id === "vizForm") {
+        const qTa = document.querySelector('#queryForm textarea[name="query_seq"]');
+        if (qTa) qTa.value = "";
+      } else if (formEl.id === "queryForm") {
+        const pasteTa = document.querySelector('#vizForm textarea[name="sequences_text"]');
+        const fastaIn = document.querySelector('#fastaBlk input[name="file"]');
+        const csvIn   = document.querySelector('#csvBlk input[name="file"]');
+        if (pasteTa) pasteTa.value = "";
+        if (fastaIn) fastaIn.value = "";
+        if (csvIn)   csvIn.value   = "";
+      }
+    } catch (err) {
+      console.error(err);
+      showBanner("Something went wrong. Please try again.");
+    } finally {
+      showPageBlocker(false);
+    }
+  }
+
+  function getSelectedFeatures(){
+    const sel = [];
+    document.querySelectorAll('#featForm input[type="checkbox"][name="features"]:checked').forEach(cb=>{
+      sel.push(cb.value);
+    });
+    return sel;
+  }
+
+  async function submitFeatureSelection(){
+    const form = document.getElementById("featForm");
+    if (!form) return;
+    const fd = new FormData();
+    fd.set("__ajax__", "1");
+    fd.set("__panel__", "interp");
+    fd.set("reembed_refs", "1"); 
+    // include CSRF
+    fd.set("csrfmiddlewaretoken", getCookie("csrftoken"));
+    // add selected feature names
+    getSelectedFeatures().forEach(v => fd.append("features", v));
+
+    showPageBlocker(true);
+    try {
+      const resp = await fetch(window.location.href, {
+        method: "POST",
+        headers: { "X-Requested-With": "XMLHttpRequest" },
+        body: fd
+      });
+      if (!resp.ok) throw new Error(`Request failed (${resp.status})`);
+      const data = await resp.json();
+      if (data.interp) {
+        INTERP = data.interp;
+        window.INTERP = INTERP;
+        await renderPlots();       // re-render both plots; DEEP is unchanged
+      }
+      showBanner(data.banner || "");
+    } catch (e){
+      console.error(e);
+      showBanner("Something went wrong while updating features.");
+    } finally {
+      showPageBlocker(false);
+    }
+  }
+
+  // Wire: change -> auto-submit (no button)
+  document.getElementById("featForm")?.addEventListener("change", (e)=>{
+    if (e.target.matches('input[type="checkbox"][name="features"]')) {
+      submitFeatureSelection();
+    }
+  });
+
+  // “Select all / none” helpers
+  document.getElementById("featAll")?.addEventListener("click", ()=>{
+    document.querySelectorAll('#featForm input[type="checkbox"][name="features"]').forEach(cb=>cb.checked=true);
+    submitFeatureSelection();
+  });
+  document.getElementById("featNone")?.addEventListener("click", ()=>{
+    document.querySelectorAll('#featForm input[type="checkbox"][name="features"]').forEach(cb=>cb.checked=false);
+    submitFeatureSelection();
+  });
+
+  // On first load: ensure all features are checked the first time user visits
+  window.addEventListener("load", ()=>{
+    const boxes = document.querySelectorAll('#featForm input[type="checkbox"][name="features"]');
+    if (boxes.length && !Array.from(boxes).some(b=>b.checked)) {
+      boxes.forEach(b=>b.checked = true);
+    }
+  });
+
+  function cleanRnaClient(s){
+    // keep only letters; convert T->U so DNA input is treated consistently
+    return (s || "").toUpperCase().replace(/[^A-Z]/g, "").replace(/T/g, "U");
+  }
+
+  (function wireQueryLengthValidation(){
+    const form = document.getElementById("queryForm");
+    const ta   = form?.querySelector('textarea[name="query_seq"]');
+    const btn    = document.getElementById("querySubmit");
+    const err  = document.getElementById("queryLenErr");
+    if (!form || !ta || !err) return;
+    const update = () => {
+      const L = cleanRnaClient(ta.value).length;
+      const hasText = L > 0;
+      const tooLong = L > 35;
+
+      // Show error only when too long
+      ta.classList.toggle("is-invalid", tooLong);
+
+      // Enable only when there is text AND not too long
+      btn.disabled = !hasText || tooLong;
+    };
+
+    ta.addEventListener("input", update);
+
+    form.addEventListener("submit", (e)=>{
+      const L = cleanRnaClient(ta.value).length;
+      if (L > 35){
+        e.preventDefault();
+        update();
+        ta.focus();
+      }
+    });
+
+    // initialize state on load
+    update();
+  })();
+
+
+  document.getElementById("vizForm")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    document.querySelectorAll('#featForm input[type="checkbox"][name="features"]').forEach(cb => { cb.checked = true; });
+    try { await ajaxSubmit(e.currentTarget); } catch (err) { console.error(err); }
+  });
+
+  document.getElementById("queryForm")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    document.querySelectorAll('#featForm input[type="checkbox"][name="features"]').forEach(cb => { cb.checked = true; });
+    try { await ajaxSubmit(e.currentTarget); } catch (err) { console.error(err); }
+  });
+
+</script>
+
+{% endblock %}
