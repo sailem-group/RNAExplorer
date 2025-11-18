@@ -222,8 +222,8 @@
 
   const QUERY_EXAMPLES = [
     { label: "#1", text: `AUUCUU` },
-    { label: "#2",  text: `UGAGG`  },
-    { label: "#3",     text: `UAAUGCU` }
+    { label: "#2", text: `UGAGG` },
+    { label: "#3", text: `UAAUGCU` }
   ];
 
   function renderExampleChips(containerId, items, onPick) {
@@ -279,13 +279,24 @@
     };
     const mkRef = (type) => {
       const r = refs?.[type]; if(!r || !r.n) return null;
-      const text = r.seqs ?? r.names ?? Array.from({length: r.xs.length}, ()=> type);
+      const text  = r.seqs ?? r.names ?? Array.from({length: r.xs.length}, ()=> type);
+      const links = r.links ?? Array.from({length: r.xs.length}, () => "");
       return {
-        type:"scattergl", mode:"markers",
-        name: `${type} (${r.n}${typeof r.total==='number' ? ' / ' + r.total : ''})`,
-        x:r.xs, y:r.ys, text,
-        marker:{ symbol:"circle", size:7.5, opacity:0.9, color: colorFor(type), line:{width:0} },
-        hovertemplate:"%{text}<extra></extra>",
+        type: "scattergl",
+        mode: "markers",
+        name: type,
+        x: r.xs,
+        y: r.ys,
+        text,
+        customdata: links,
+        marker: {
+          symbol: "circle",
+          size: 7.5,
+          opacity: 0.9,
+          color: colorFor(type),
+          line: { width: 0 }
+        },
+        hovertemplate: "%{text}<extra></extra>",
       };
     };
     const t=[];
@@ -300,35 +311,56 @@
 
   function userTraces(user){
     if (!user || !user.n) return [];
-    const textSrc = user.seqs ?? user.names ?? [];
+    const textSrc  = user.seqs ?? user.names ?? [];
+    const linkSrc  = user.links ?? [];  // user points typically no links
     const buckets = {};
     for (let i=0;i<user.xs.length;i++){
       const g = "Sequence";
       if (!buckets[g]) buckets[g] = {
-        type:"scattergl", mode:"markers",
-        name:`${g}`, x:[], y:[], text:[],
-        hovertemplate:"%{text}<extra></extra>",
-        marker:{symbol:"circle", size:10, opacity:0.75, color:"red", line:{width:1, color:"rgba(100,0,0,0.7)"}}
+        type: "scattergl",
+        mode: "markers",
+        name: g,
+        x: [],
+        y: [],
+        text: [],
+        customdata: [],
+        hovertemplate: "%{text}<extra></extra>",
+        marker: {
+          symbol: "circle",
+          size: 10,
+          opacity: 0.75,
+          color: "red",
+          line: { width: 1, color: "rgba(100,0,0,0.7)" }
+        }
       };
       buckets[g].x.push(user.xs[i]);
       buckets[g].y.push(user.ys[i]);
       buckets[g].text.push(textSrc[i] || "Sequence");
+      buckets[g].customdata.push(linkSrc[i] || "");
     }
-    const arr = Object.values(buckets);
-    arr.forEach(tr => tr.name = `${tr.name} (${tr.x.length})`);
-    return arr;
+    return Object.values(buckets);
   }
-
 
   function queryTrace(q){
     if (!q || !q.n) return null;
-    const text = q.seqs ?? q.names ?? Array.from({length: q.xs.length}, ()=> "Query match");
+    const text  = q.seqs ?? q.names ?? Array.from({length: q.xs.length}, ()=> "Query match");
+    const links = q.links ?? Array.from({length: q.xs.length}, () => "");
     return {
-      type:"scattergl", mode:"markers",
-      name:`Query matches (${q.n})`,
-      x:q.xs, y:q.ys, text,
-      marker:{symbol:"circle", size:10, opacity:0.75, color:"red", line:{width:1, color:"rgba(100,0,0,0.7)"}},
-      hovertemplate:"%{text}<extra></extra>"
+      type: "scattergl",
+      mode: "markers",
+      name: "Query matches",
+      x: q.xs,
+      y: q.ys,
+      text,
+      customdata: links,
+      marker: {
+        symbol: "circle",
+        size: 10,
+        opacity: 0.75,
+        color: "red",
+        line: { width: 1, color: "rgba(100,0,0,0.7)" }
+      },
+      hovertemplate: "%{text}<extra></extra>"
     };
   }
 
@@ -560,7 +592,7 @@
   (function wireQueryLengthValidation(){
     const form = document.getElementById("queryForm");
     const ta   = form?.querySelector('textarea[name="query_seq"]');
-    const btn    = document.getElementById("querySubmit");
+    const btn  = document.getElementById("querySubmit");
     const err  = document.getElementById("queryLenErr");
     if (!form || !ta || !err) return;
     const update = () => {
@@ -601,6 +633,26 @@
     e.preventDefault();
     document.querySelectorAll('#featForm input[type="checkbox"][name="features"]').forEach(cb => { cb.checked = true; });
     try { await ajaxSubmit(e.currentTarget); } catch (err) { console.error(err); }
+  });
+
+  function handlePlotClick(ev) {
+    if (!ev || !ev.points || !ev.points.length) return;
+    const pt = ev.points[0];
+    const link = pt.customdata;  // per-point customdata
+    if (link && typeof link === "string") {
+      window.open(link, "_blank");
+    }
+  }
+
+  window.addEventListener("load", () => {
+    const deepEl   = document.getElementById("deepPlot");
+    const interpEl = document.getElementById("interpPlot");
+    if (deepEl && typeof deepEl.on === "function") {
+      deepEl.on("plotly_click", handlePlotClick);
+    }
+    if (interpEl && typeof interpEl.on === "function") {
+      interpEl.on("plotly_click", handlePlotClick);
+    }
   });
 
 </script>
