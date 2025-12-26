@@ -17,6 +17,21 @@
     background:#fff; cursor:pointer; user-select:none; white-space:nowrap;
   }
   .example-chip:hover { background:#f6f7f9; }
+  #tblNearest thead th,
+  #tblMatches thead th {
+    color: #212529 !important;
+  }
+
+  th.sortable { cursor: pointer; user-select: none; white-space: nowrap; }
+  th.sortable .sort-icon {
+    display: inline-block;
+    width: 14px;
+    text-align: center;
+    margin-left: 6px;
+    opacity: .65;
+  }
+  th.sortable:hover .sort-icon { opacity: 1; }
+
 </style>
 
 <div id="pageBlocker" aria-hidden="true">
@@ -165,13 +180,122 @@
 
             <!-- RNA-FM -->
             <div class="px-2"><h5 class="mb-2">RNA-FM embedding</h5></div>
-            <div id="deepPlot" style="height:700px;"></div>
+            <div id="deepPlot" style="height:700px; width:1000px"></div>
 
             <hr class="my-3">
 
             <!-- Interpretable plot-->
             <div class="px-2"><h5 class="mb-2">Interpretable features embedding</h5></div>
-            <div id="interpPlot" style="height:700px;"></div>
+            <div id="interpPlot" style="height:700px; width:1000px"></div>
+
+            <hr class="my-3">
+
+            <!-- Query tables (shown only when INTERP.tables exists) -->
+            <div id="interpTables" class="mt-4 d-none">
+
+              <div class="mb-3">
+
+                <div class="px-2"><h5 class="mb-2">Top 20 closest sequences</h5></div>
+                <div class="d-flex flex-wrap gap-3 align-items-center px-2 mb-2 mt-2">
+                  <span class="small text-muted">Filter Type:</span>
+
+                  <div class="form-check form-check-inline mb-0">
+                    <input class="form-check-input type-check-nearest" type="checkbox" value="siRNA" id="tN_si" checked>
+                    <label class="form-check-label" for="tN_si">siRNA</label>
+                  </div>
+                  <div class="form-check form-check-inline mb-0">
+                    <input class="form-check-input type-check-nearest" type="checkbox" value="miRNA" id="tN_mi" checked>
+                    <label class="form-check-label" for="tN_mi">miRNA</label>
+                  </div>
+                  <div class="form-check form-check-inline mb-0">
+                    <input class="form-check-input type-check-nearest" type="checkbox" value="piRNA" id="tN_pi" checked>
+                    <label class="form-check-label" for="tN_pi">piRNA</label>
+                  </div>
+                </div>
+
+                <div class="table-responsive results-table mb-3" style="max-height: 380px; overflow:auto;">
+                  <table class="table table-striped align-middle mb-0" id="tblNearest">
+                    <thead class="table-light" style="position: sticky; top: 0; z-index: 2;">
+                      <tr>
+                        <th>Index</th>
+                        <th>Type</th>
+                        <th>Sequence</th>
+                        <th class="sortable" data-key="length">Length <span class="sort-icon"></span></th>
+                        <th class="sortable" data-key="gc_pct">GC % <span class="sort-icon"></span></th>
+                        <th class="sortable" data-key="gc_skew">GC skew <span class="sort-icon"></span></th>
+                        <th class="sortable" data-key="at_au_skew">AT/AU skew <span class="sort-icon"></span></th>
+                        <th class="sortable" data-key="mnc_A">MNC A <span class="sort-icon"></span></th>
+                        <th class="sortable" data-key="mnc_C">MNC C <span class="sort-icon"></span></th>
+                        <th class="sortable" data-key="mnc_G">MNC G <span class="sort-icon"></span></th>
+                        <th class="sortable" data-key="mnc_U">MNC U <span class="sort-icon"></span></th>
+                        {% comment %} <th class="text-nowrap">Distance</th> {% endcomment %}
+                        <th>Link</th>
+                      </tr>
+                    </thead>
+                    <tbody></tbody>
+                  </table>
+                </div>
+
+              </div>
+
+              <div class="mt-3">
+                <div class="d-flex justify-content-between align-items-center mt-3">
+                  <h5 class="mb-2 px-2">Sequences containing query fragment</h5>
+                  <small id="matchesMeta" class="text-muted"></small>
+                </div>
+
+                <div class="d-flex flex-wrap gap-3 align-items-center px-2 mb-2 mt-2">
+                  <span class="small text-muted">Filter Type:</span>
+
+                  <div class="form-check form-check-inline mb-0">
+                    <input class="form-check-input type-check-matches" type="checkbox" value="siRNA" id="tM_si" checked>
+                    <label class="form-check-label" for="tM_si">siRNA</label>
+                  </div>
+                  <div class="form-check form-check-inline mb-0">
+                    <input class="form-check-input type-check-matches" type="checkbox" value="miRNA" id="tM_mi" checked>
+                    <label class="form-check-label" for="tM_mi">miRNA</label>
+                  </div>
+                  <div class="form-check form-check-inline mb-0">
+                    <input class="form-check-input type-check-matches" type="checkbox" value="piRNA" id="tM_pi" checked>
+                    <label class="form-check-label" for="tM_pi">piRNA</label>
+                  </div>
+                </div>
+
+
+                <div class="table-responsive results-table" style="max-height: 460px; overflow:auto;">
+                  <table class="table table-striped align-middle mb-0" id="tblMatches">
+                    <thead class="table-light" style="position: sticky; top: 0; z-index: 2;">
+                      <tr>
+                        <th>Index</th>
+                        <th>Type</th>
+                        <th>Sequence</th>
+                        <th class="sortable" data-key="length">Length <span class="sort-icon"></span></th>
+                        <th class="sortable" data-key="gc_pct">GC % <span class="sort-icon"></span></th>
+                        <th class="sortable" data-key="gc_skew">GC skew <span class="sort-icon"></span></th>
+                        <th class="sortable" data-key="at_au_skew">AT/AU skew <span class="sort-icon"></span></th>
+                        <th class="sortable" data-key="mnc_A">MNC A <span class="sort-icon"></span></th>
+                        <th class="sortable" data-key="mnc_C">MNC C <span class="sort-icon"></span></th>
+                        <th class="sortable" data-key="mnc_G">MNC G <span class="sort-icon"></span></th>
+                        <th class="sortable" data-key="mnc_U">MNC U <span class="sort-icon"></span></th>
+                        <th>Link</th>
+                      </tr>
+                    </thead>
+                    <tbody></tbody>
+                  </table>
+                </div>
+
+
+                <div class="d-flex gap-2 align-items-center mt-2">
+                  <button id="btnMatchesMore" type="button" class="btn btn-outline-secondary btn-sm d-none">
+                    Show all returned
+                  </button>
+                  <small class="text-muted" id="matchesNote"></small>
+                </div>
+              </div>
+
+            </div>
+
+
           </div>
         </div>
       </div>
@@ -290,11 +414,11 @@
         text,
         customdata: links,
         marker: {
-          symbol: "circle",
+          symbol: "circle-open", 
           size: 7.5,
-          opacity: 0.9,
+          opacity: 1,
           color: colorFor(type),
-          line: { width: 0 }
+          line: { width: 1.5 }
         },
         hovertemplate: "%{text}<extra></extra>",
       };
@@ -309,10 +433,11 @@
     return t;
   }
 
+
   function userTraces(user){
     if (!user || !user.n) return [];
     const textSrc  = user.seqs ?? user.names ?? [];
-    const linkSrc  = user.links ?? [];  // user points typically no links
+    const linkSrc  = user.links ?? [];
     const buckets = {};
     for (let i=0;i<user.xs.length;i++){
       const g = "Sequence";
@@ -383,12 +508,35 @@
     };
   }
 
+  function layoutDeep(){
+    const base = layoutCommon();
+    return {
+      ...base,
+      autosize: false,
+      width: 700,
+      height: 700,
+
+      xaxis: {
+        ...base.xaxis,
+        range: [-40, 40],
+        autorange: false
+      },
+      yaxis: {
+        ...base.yaxis,
+        range: [-40, 40],
+        autorange: false
+      },
+    };
+  }
+
   let DEEP  = {{ deep_payload_json|default:"null"|safe }};
   let INTERP= {{ interp_payload_json|default:"null"|safe }};
   window.DEEP = DEEP;
   window.INTERP = INTERP;
+  let nearestCtrl = null;
+  let matchesCtrl = null;
 
-  function renderPlots(){
+  async function renderPlots(){
     const sel = selectedTypes();
 
     const deepData = [];
@@ -406,11 +554,16 @@
       const q2 = queryTrace(INTERP.query);
       if (q2) interpData.push(q2);
     }
+
     const p1 = Plotly.react("deepPlot", deepData, layoutCommon());
     const p2 = Plotly.react("interpPlot", interpData, layoutCommon());
 
-    return Promise.all([p1, p2]);
+    await Promise.all([p1, p2]);
+
+    // NEW
+    renderInterpTables();
   }
+
 
   showPageBlocker(true);
   renderPlots().finally(() => showPageBlocker(false));
@@ -548,7 +701,7 @@
       if (data.interp) {
         INTERP = data.interp;
         window.INTERP = INTERP;
-        await renderPlots();       // re-render both plots; DEEP is unchanged
+        await renderPlots();
       }
       showBanner(data.banner || "");
     } catch (e){
@@ -588,6 +741,221 @@
     // keep only letters; convert T->U so DNA input is treated consistently
     return (s || "").toUpperCase().replace(/[^A-Z]/g, "").replace(/T/g, "U");
   }
+
+  function escapeHtml(s){
+    return (s ?? "").toString()
+      .replaceAll("&","&amp;")
+      .replaceAll("<","&lt;")
+      .replaceAll(">","&gt;")
+      .replaceAll('"',"&quot;")
+      .replaceAll("'","&#039;");
+  }
+
+  function fmtNum(x, nd=4){
+    if (x === null || x === undefined || x === "") return "";
+    const n = Number(x);
+    if (!Number.isFinite(n)) return "";
+    return n.toFixed(nd);
+  }
+
+  function highlightFragment(seq, frag){
+    const s = (seq ?? "").toString();
+    const f = (frag ?? "").toString();
+    if (!s || !f) return escapeHtml(s);
+    const i = s.indexOf(f);
+    if (i < 0) return escapeHtml(s);
+    return (
+      escapeHtml(s.slice(0,i)) +
+      `<mark class="px-1">${escapeHtml(f)}</mark>` +
+      escapeHtml(s.slice(i+f.length))
+    );
+  }
+
+  function rowLinkHtml(link){
+    if (!link) return "";
+    const safe = escapeHtml(link);
+    return `<a href="${safe}" target="_blank" rel="noopener">open</a>`;
+  }
+
+  function renderTableRows(tbodyEl, rows, frag, opts={}){
+    const { showDistance=false } = opts;
+    tbodyEl.innerHTML = "";
+
+    if (!rows || rows.length === 0) {
+      const colCount = tbodyEl.closest("table").querySelectorAll("thead th").length;
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td colspan="${colCount}" class="text-center text-muted py-3">
+        No records found.
+      </td>`;
+      tbodyEl.appendChild(tr);
+      return;
+    }
+
+    rows.forEach((r, idx) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td class="text-muted">${idx+1}</td>
+        <td>${escapeHtml(r.type ?? "")}</td>
+        <td style="font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;">
+          ${highlightFragment(r.sequence ?? "", frag)}
+        </td>
+        <td class="text-nowrap">${escapeHtml(r.length ?? "")}</td>
+        <td class="text-nowrap">${fmtNum(r.gc_pct, 2)}</td>
+        <td class="text-nowrap">${fmtNum(r.gc_skew, 2)}</td>
+        <td class="text-nowrap">${fmtNum(r.at_au_skew, 2)}</td>
+        <td class="text-nowrap">${fmtNum(r.mnc_A, 2)}</td>
+        <td class="text-nowrap">${fmtNum(r.mnc_C, 2)}</td>
+        <td class="text-nowrap">${fmtNum(r.mnc_G, 2)}</td>
+        <td class="text-nowrap">${fmtNum(r.mnc_U, 2)}</td>
+        ${showDistance ? `<td class="text-nowrap">${fmtNum(r.distance, 6)}</td>` : ""}
+        <td>${rowLinkHtml(r.link ?? "")}</td>
+      `;
+      tbodyEl.appendChild(tr);
+    });
+  }
+
+  function makeTableController(tableId, typeCheckboxClass) {
+    const table = document.getElementById(tableId);
+    const tbody = table?.querySelector("tbody");
+    const typeChecks = Array.from(document.querySelectorAll(`.${typeCheckboxClass}`));
+
+    let baseRows = [];
+    let frag = "";
+    let sortKey = null;
+    let sortAsc = true;
+
+    function selectedTypesSet() {
+      const picked = new Set(typeChecks.filter(c => c.checked).map(c => c.value));
+      return picked;
+    }
+
+    function filterRows(rows) {
+      const picked = selectedTypesSet();
+      if (picked.size === 0) return [];
+      return rows.filter(r => picked.has((r.type || "").trim()));
+    }
+
+    function sortRows(rows) {
+      if (!sortKey) return rows;
+      const copy = [...rows];
+      copy.sort((a, b) => {
+        const va = a?.[sortKey];
+        const vb = b?.[sortKey];
+
+        const na = Number(va), nb = Number(vb);
+        const bothNum = Number.isFinite(na) && Number.isFinite(nb);
+
+        let cmp;
+        if (bothNum) cmp = na - nb;
+        else cmp = String(va ?? "").localeCompare(String(vb ?? ""));
+
+        return sortAsc ? cmp : -cmp;
+      });
+      return copy;
+    }
+
+    function updateSortIcons() {
+      if (!table) return;
+      table.querySelectorAll("thead th.sortable").forEach(th => {
+        const icon = th.querySelector(".sort-icon");
+        if (!icon) return;
+        const key = th.dataset.key;
+
+        if (key !== sortKey) icon.textContent = "⇅";
+        else icon.textContent = sortAsc ? "▲" : "▼";
+      });
+    }
+
+    function render() {
+      if (!tbody) return;
+
+      const filtered = filterRows(baseRows);
+      const sorted = sortRows(filtered);
+
+      const showDistance = !!table.querySelector('thead th[data-key="distance"]');
+      renderTableRows(tbody, sorted, frag, { showDistance });
+
+      updateSortIcons();
+    }
+
+    if (table) {
+      table.querySelectorAll("thead th.sortable").forEach(th => {
+        th.addEventListener("click", () => {
+          const key = th.dataset.key;
+          if (!key) return;
+
+          if (sortKey === key) sortAsc = !sortAsc;
+          else { sortKey = key; sortAsc = true; }
+
+          render();
+        });
+      });
+    }
+
+    // checkbox filtering
+    typeChecks.forEach(cb => cb.addEventListener("change", render));
+
+    // init neutral icons
+    updateSortIcons();
+
+    return {
+      setData(rows, fragment) {
+        baseRows = Array.isArray(rows) ? rows : [];
+        frag = fragment || "";
+        render();
+      }
+    };
+  }
+
+  function renderInterpTables(){
+    const wrap = document.getElementById("interpTables");
+    const metaEl = document.getElementById("matchesMeta");
+    const noteEl = document.getElementById("matchesNote");
+    const btnMore = document.getElementById("btnMatchesMore");
+
+    if (!wrap) return;
+
+    const tables = INTERP?.tables;
+    if (!tables) { wrap.classList.add("d-none"); return; }
+    wrap.classList.remove("d-none");
+
+    const frag = cleanRnaClient(tables.query_seq || "");
+
+    if (!nearestCtrl) nearestCtrl = makeTableController("tblNearest", "type-check-nearest");
+    if (!matchesCtrl) matchesCtrl = makeTableController("tblMatches", "type-check-matches");
+
+    nearestCtrl.setData((tables.nearest?.rows || []).slice(0, 20), frag);
+    matchesCtrl.setData((tables.matches?.rows || []), frag);
+
+    const allReturned = (tables.matches?.rows || []);
+    const total = Number(tables.matches?.total || allReturned.length || 0);
+    const sent = Number(tables.matches?.sent || allReturned.length || 0);
+    const truncated = !!tables.matches?.truncated;
+
+    const DEFAULT_N = Math.min(200, allReturned.length);
+    let showingAll = false;
+
+    const renderMatches = () => {
+      const rowsToShow = showingAll ? allReturned : allReturned.slice(0, DEFAULT_N);
+      matchesCtrl.setData(rowsToShow, frag);
+
+      metaEl.textContent = total ? `Total matches: ${total}` : "";
+      noteEl.textContent = truncated
+        ? `Showing ${rowsToShow.length} of ${total}. Refine query to reduce matches.`
+        : `Showing ${rowsToShow.length}${total ? ` of ${total}` : ""}.`;
+
+      if (!showingAll && allReturned.length > DEFAULT_N) {
+        btnMore.classList.remove("d-none");
+        btnMore.textContent = `Show all returned (${sent})`;
+      } else {
+        btnMore.classList.add("d-none");
+      }
+    };
+
+    btnMore.onclick = () => { showingAll = true; renderMatches(); };
+    renderMatches();
+  }
+
 
   (function wireQueryLengthValidation(){
     const form = document.getElementById("queryForm");

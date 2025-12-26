@@ -33,6 +33,7 @@ FEAT_REF_TSNE_FILE = os.path.join(EMB_DIR, "interp_tsne.npy")
 FEAT_REF_META_FILE = os.path.join(EMB_DIR, "interp_meta.json")
 
 REFS_PER_TYPE_LIMIT = 23_116
+MAX_MATCH_ROWS_TO_SEND = 2000 
 
 _RNAFM_SINGLETON = {"model": None, "alphabet": None, "emb_len": 640, "device": "cpu"}
 
@@ -71,6 +72,72 @@ def help_getting_started(request):
 
 def about(request):
     return render(request, "about.html")
+
+def _safe_float(v):
+    try:
+        if v in (None, ""):
+            return None
+        return float(v)
+    except Exception:
+        return None
+
+def _safe_int(v):
+    try:
+        if v in (None, ""):
+            return None
+        return int(float(v))
+    except Exception:
+        return None
+
+def _row_props_from_db_row(row: dict, cleaned_seq: str | None = None) -> dict:
+    seq_clean = cleaned_seq if cleaned_seq is not None else _clean_rna((row.get("Sequence") or row.get("sequence") or "").strip())
+    rna_type = (row.get("RNA Type") or row.get("rna_type") or row.get("type") or "").strip() or "Unknown"
+    link = (row.get("link") or row.get("Link") or "").strip() or ""
+
+    length = _safe_int(row.get("length"))
+    if length is None and seq_clean:
+        length = len(seq_clean)
+
+    gc_pct = _safe_float(row.get("gc_content"))
+    if gc_pct is None:
+        gc_pct = _safe_float(row.get("gc_pct"))
+
+    if gc_pct is not None and gc_pct <= 1.0:
+        gc_pct *= 100.0
+
+    if gc_pct is not None:
+        gc_pct = round(gc_pct, 2)
+
+    at_au_skew = _safe_float(row.get("au_or_at_skew"))
+    if at_au_skew is None:
+        at_au_skew = _safe_float(row.get("au_at_skew"))
+    if at_au_skew is None:
+        at_au_skew = _safe_float(row.get("at_au_skew"))
+
+    return {
+        "type": rna_type,
+        "sequence": seq_clean,
+        "link": link,
+        "length": length,
+        "gc_pct": gc_pct, 
+        "gc_skew": _safe_float(row.get("gc_skew")),
+        "at_au_skew": at_au_skew,
+        "mnc_A": _safe_float(row.get("mnc_A")),
+        "mnc_C": _safe_float(row.get("mnc_C")),
+        "mnc_G": _safe_float(row.get("mnc_G")),
+        "mnc_U": _safe_float(row.get("mnc_U")),
+    }
+
+def _feature_vector_for_query(q_raw: str, feat_names: list[str]) -> np.ndarray:
+    feats = _compute_all_features(q_raw)
+    flat = _flatten_feature_row("query", q_raw, detect_alphabet_simple(q_raw), feats)
+    vec = []
+    for k in feat_names:
+        try:
+            vec.append(float(flat.get(k, 0.0)))
+        except Exception:
+            vec.append(0.0)
+    return np.asarray(vec, dtype=np.float32)
 
 
 def _numeric_suffix_key(fp: str):
@@ -112,6 +179,24 @@ def _tsne_2d(embeddings, perplexity=30, seed=42):
     perp = max(5, min(perplexity, len(X)//2))
     Y = TSNE(n_components=2, perplexity=perp, random_state=seed).fit_transform(X)
     return Y[:, 0].tolist(), Y[:, 1].tolist()
+
+def _normalize_tsne_coords(Y: np.ndarray, target_half_range: float = 40.0) -> np.ndarray:
+    if Y is None:
+        return Y
+    Y = np.asarray(Y, dtype=np.float32)
+    if Y.size == 0:
+        return Y
+
+    mins = Y.min(axis=0)
+    maxs = Y.max(axis=0)
+    center = (maxs + mins) / 2.0
+    span = (maxs - mins).max()
+
+    if span <= 0:
+        return Y - center
+
+    scale = (2.0 * target_half_range) / span
+    return (Y - center) * scale
 
 
 def _alpha_letters(alpha: str) -> str:
@@ -282,7 +367,12 @@ def _build_or_load_joint_refs(si_arr, mi_arr, pi_arr):
         )
     X_ref = np.vstack(parts).astype(np.float32)
     xs, ys = _tsne_2d(X_ref.tolist())
-    Y_ref = np.column_stack([np.asarray(xs, np.float32), np.asarray(ys, np.float32)])
+    Y_ref = np.column_stack(
+        [np.asarray(xs, np.float32), np.asarray(ys, np.float32)]
+    )
+
+    Y_ref = _normalize_tsne_coords(Y_ref, target_half_range=40.0)
+
     counts = {"siRNA": n_si, "miRNA": n_mi, "piRNA": n_pi}
     _save_refs_tsne(X_ref, Y_ref, counts)
     return X_ref, Y_ref, counts
@@ -651,17 +741,19 @@ def feature_lab(request):
             ok = False
 
         xs_q, ys_q, seqs_q, links_q = [], [], [], []
-        if Xd.shape[0] and ok:
+        if Xd.shape[0]:
             i0, i1 = 0, n_si
             i2, i3 = i1 + n_mi, i1 + n_mi + n_pi
 
             def _append(blockY, seqs, links):
                 nonlocal xs_q, ys_q, seqs_q, links_q
-                for j, s in enumerate(seqs):
-                    if q in s:
+                m = min(blockY.shape[0], len(seqs))
+                for j in range(m):
+                    s_clean = _clean_rna(seqs[j])
+                    if q in s_clean:
                         xs_q.append(float(blockY[j, 0]))
                         ys_q.append(float(blockY[j, 1]))
-                        seqs_q.append(_clean_rna(s))
+                        seqs_q.append(s_clean)
                         links_q.append((links[j] if j < len(links) else "") or "")
 
             if n_si and ref_seqs["siRNA"]:
@@ -671,7 +763,54 @@ def feature_lab(request):
             if n_pi and ref_seqs["piRNA"]:
                 _append(Yd[i2:i3], ref_seqs["piRNA"], ref_links["piRNA"])
 
+        deep_nearest_seq_set = set()
+        deep_nearest_dist = {}
+
+        if xs_q and ys_q:
+            cx = float(np.mean(xs_q))
+            cy = float(np.mean(ys_q))
+
+            candidates = []  # (dist, seq_clean)
+
+            i0, i1 = 0, n_si
+            i2, i3 = i1 + n_mi, i1 + n_mi + n_pi
+
+            def _add_candidates(blockY, seqs):
+                m = min(blockY.shape[0], len(seqs))
+                for j in range(m):
+                    s_clean = _clean_rna(seqs[j])
+                    dx = float(blockY[j, 0]) - cx
+                    dy = float(blockY[j, 1]) - cy
+                    d = (dx * dx + dy * dy) ** 0.5
+                    candidates.append((d, s_clean))
+
+            if n_si and ref_seqs["siRNA"]:
+                _add_candidates(Yd[i0:i1], ref_seqs["siRNA"])
+            if n_mi and ref_seqs["miRNA"]:
+                _add_candidates(Yd[i1:i2], ref_seqs["miRNA"])
+            if n_pi and ref_seqs["piRNA"]:
+                _add_candidates(Yd[i2:i3], ref_seqs["piRNA"])
+
+            candidates.sort(key=lambda t: t[0])
+
+            for d, s_clean in candidates:
+                if s_clean in deep_nearest_seq_set:
+                    continue
+                deep_nearest_seq_set.add(s_clean)
+                deep_nearest_dist[s_clean] = float(d)
+                if len(deep_nearest_seq_set) >= 20:
+                    break
+
         xs_q_i, ys_q_i, seqs_q_i, links_q_i = [], [], [], []
+        nearest_rows = []
+        match_rows = []
+        match_total = 0
+
+        # dedupe sets
+        seen_match_seq = set()
+        seen_match_plot = set()
+        seen_nearest_seq = set()
+
         if Yi is not None and isinstance(Yi, np.ndarray) and Yi.shape[0] > 0:
             parts_found = glob.glob(os.path.join(DATABASE_PART_DIR, "database.part*.csv"))
             reader_iter = _load_sharded_csv_parts(DATABASE_PART_DIR) if parts_found else csv.DictReader(open(DATABASE_CSV_FILE))
@@ -680,18 +819,36 @@ def feature_lab(request):
             for row in reader_iter:
                 seq = (row.get("Sequence") or row.get("sequence") or "").strip()
                 link = (row.get("link") or row.get("Link") or "").strip()
+
                 if not seq:
                     idx += 1
                     continue
-                if q in _clean_rna(seq):
-                    if idx < Yi.shape[0]:
+
+                seq_clean = _clean_rna(seq)
+
+                if q in seq_clean:
+                    if seq_clean not in seen_match_plot and idx < Yi.shape[0]:
                         xs_q_i.append(float(Yi[idx, 0]))
                         ys_q_i.append(float(Yi[idx, 1]))
-                        seqs_q_i.append(_clean_rna(seq))
+                        seqs_q_i.append(seq_clean)
                         links_q_i.append(link)
+                        seen_match_plot.add(seq_clean)
+
+                    if seq_clean not in seen_match_seq:
+                        seen_match_seq.add(seq_clean)
+                        match_total += 1
+                        if len(match_rows) < MAX_MATCH_ROWS_TO_SEND:
+                            match_rows.append(_row_props_from_db_row(row, cleaned_seq=seq_clean))
+
+                if seq_clean in deep_nearest_seq_set and seq_clean not in seen_nearest_seq:
+                    rec = _row_props_from_db_row(row, cleaned_seq=seq_clean)
+                    rec["distance"] = float(deep_nearest_dist.get(seq_clean, 1e18))
+                    nearest_rows.append(rec)
+                    seen_nearest_seq.add(seq_clean)
+
                 idx += 1
 
-        if not xs_q and not xs_q_i:
+        if not xs_q and not xs_q_i and not nearest_rows:
             return _respond(
                 {"refs": deep_refs}, {"refs": interp_refs}, has_user=False,
                 banner="No matches found in the reference."
@@ -707,6 +864,7 @@ def feature_lab(request):
                 "links": links_q,
             },
         }
+
         interp_payload = {
             "refs": interp_refs,
             "query": {
@@ -716,9 +874,23 @@ def feature_lab(request):
                 "seqs": seqs_q_i,
                 "links": links_q_i,
             },
+            "tables": {
+                "query_seq": q,
+                "nearest": {
+                    "rows": sorted(nearest_rows, key=lambda r: r.get("distance", 1e18))[:20],
+                    "k": 20,
+                },
+                "matches": {
+                    "rows": match_rows,
+                    "total": int(match_total),  # now unique count
+                    "truncated": bool(match_total > len(match_rows)),
+                    "sent": len(match_rows),
+                }
+            }
         }
 
         return _respond(deep_payload, interp_payload, has_user=False)
+
 
     elif panel == "interp":
         selected_feats = request.POST.getlist("features")
