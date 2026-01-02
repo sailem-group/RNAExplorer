@@ -93,6 +93,8 @@ def _row_props_from_db_row(row: dict, cleaned_seq: str | None = None) -> dict:
     seq_clean = cleaned_seq if cleaned_seq is not None else _clean_rna((row.get("Sequence") or row.get("sequence") or "").strip())
     rna_type = (row.get("RNA Type") or row.get("rna_type") or row.get("type") or "").strip() or "Unknown"
     link = (row.get("link") or row.get("Link") or "").strip() or ""
+    species = (row.get("species") or row.get("Species") or "").strip()
+    species = species.split(";", 1)[0].strip() if species else ""
 
     length = _safe_int(row.get("length"))
     if length is None and seq_clean:
@@ -126,6 +128,7 @@ def _row_props_from_db_row(row: dict, cleaned_seq: str | None = None) -> dict:
         "mnc_C": _safe_float(row.get("mnc_C")),
         "mnc_G": _safe_float(row.get("mnc_G")),
         "mnc_U": _safe_float(row.get("mnc_U")),
+        "species": species, 
     }
 
 def _feature_vector_for_query(q_raw: str, feat_names: list[str]) -> np.ndarray:
