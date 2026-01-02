@@ -578,6 +578,73 @@ def _interp_refs_payload_from_embedding_subset(Yi: np.ndarray, feat_labels_sub: 
         }
     return payload
 
+def _nearest_mirna_only(q_clean, Yd, ref_seqs, ref_links, n_si, n_mi, n_pi, k=100):
+    if not q_clean or Yd is None or Yd.shape[0] == 0:
+        return []
+
+    i_start = n_si
+    xs_q, ys_q = [], []
+
+    for j, seq in enumerate(ref_seqs["miRNA"]):
+        if q_clean in seq and (i_start + j) < Yd.shape[0]:
+            xs_q.append(float(Yd[i_start + j, 0]))
+            ys_q.append(float(Yd[i_start + j, 1]))
+
+    if not xs_q:
+        return []
+
+    cx = float(np.mean(xs_q))
+    cy = float(np.mean(ys_q))
+
+    cand = []
+    for j, seq in enumerate(ref_seqs["miRNA"]):
+        idx = i_start + j
+        if idx >= Yd.shape[0]:
+            break
+        dx = float(Yd[idx, 0]) - cx
+        dy = float(Yd[idx, 1]) - cy
+        dist = (dx*dx + dy*dy) ** 0.5
+        cand.append((dist, seq, ref_links["miRNA"][j] if j < len(ref_links["miRNA"]) else ""))
+
+    cand.sort(key=lambda t: t[0])
+
+    seq_to_meta = {}
+    for dist, seq, link in cand:
+        if seq in seq_to_meta:
+            continue
+        seq_to_meta[seq] = {"distance": float(dist), "link": link}
+        if len(seq_to_meta) >= k:
+            break
+
+    if not seq_to_meta:
+        return []
+
+    out = []
+    parts_found = glob.glob(os.path.join(DATABASE_PART_DIR, "database.part*.csv"))
+    reader_iter = _load_sharded_csv_parts(DATABASE_PART_DIR) if parts_found else csv.DictReader(open(DATABASE_CSV_FILE))
+
+    for row in reader_iter:
+        if (row.get("RNA Type") or "").strip() != "miRNA":
+            continue
+        seq_raw = (row.get("Sequence") or row.get("sequence") or "").strip()
+        if not seq_raw:
+            continue
+        seq_clean = _clean_rna(seq_raw)
+        meta = seq_to_meta.get(seq_clean)
+        if not meta:
+            continue
+
+        rec = _row_props_from_db_row(row, cleaned_seq=seq_clean)
+        rec["distance"] = meta["distance"]
+        rec["link"] = meta["link"] or rec.get("link") or ""
+        out.append(rec)
+
+        if len(out) >= len(seq_to_meta):
+            break
+
+    out.sort(key=lambda r: r.get("distance", 1e18))
+    return out[:k]
+
 
 @csrf_protect
 @ensure_csrf_cookie
@@ -1067,6 +1134,50 @@ def feature_lab(request):
     request.session["has_user_overlaid"] = True
     return _respond(deep_payload, interp_payload, has_user=True)
 
+@require_GET
+def feature_lab_nearest_mirna_100_page(request):
+    q = _clean_rna(request.GET.get("q", ""))
+    if not q:
+        return render(request, "tools/nearest_mirna.html", {
+            "rows": [],
+            "query": "",
+        })
+
+    ref_seqs, ref_links = _load_ref_sequences_by_type()
+
+    emb_dir = os.path.join(APP_DIR, "data", "embeddings")
+
+    def _load(name_candidates):
+        for nm in name_candidates:
+            p = os.path.join(emb_dir, nm)
+            if os.path.exists(p):
+                arr = np.load(p).astype(np.float32)
+                if arr.ndim == 1:
+                    arr = arr.reshape(1, -1)
+                return arr
+        return np.zeros((0, _RNAFM_SINGLETON["emb_len"]), np.float32)
+
+    si = _load(["siRNA_embeddings.npy"])
+    mi = _load(["miRNA_embeddings.npy"])
+    pi = _load(["piRNA_embeddings.npy"])
+
+    Xd, Yd, counts = _build_or_load_joint_refs(si, mi, pi)
+
+    rows = _nearest_mirna_only(
+        q_clean=q,
+        Yd=Yd,
+        ref_seqs=ref_seqs,
+        ref_links=ref_links,
+        n_si=counts.get("siRNA", 0),
+        n_mi=counts.get("miRNA", 0),
+        n_pi=counts.get("piRNA", 0),
+        k=100,
+    )
+
+    return render(request, "tools/nearest_mirna.html", {
+        "rows": rows,
+        "query": q,
+    })
 
 @require_GET
 def feature_explorer_download_embeddings(request):
