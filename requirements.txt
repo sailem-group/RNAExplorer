@@ -10,3 +10,4 @@ Jinja2~=3.1
 scikit-learn~=1.4
 torch~=2.3
 rna-fm
+python-dotenv~=1.2.1

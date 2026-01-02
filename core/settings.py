@@ -20,14 +20,21 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv(BASE_DIR / ".env")
+except Exception:
+    pass
+
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-8k$t^h5o3heo$l%jh7-q4#ksw65(58gonhc1&xl*dabj)plxtm'
+SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "unsafe-dev-fallback-change-me")
+DEBUG = os.getenv("DJANGO_DEBUG", "False").lower() == "true"
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+ALLOWED_HOSTS = [h.strip() for h in os.getenv("ALLOWED_HOSTS", "").split(",") if h.strip()]
 
-ALLOWED_HOSTS = ['.onrender.com', 'localhost', '127.0.0.1']
-CSRF_TRUSTED_ORIGINS = ['https://*.onrender.com']
+CSRF_TRUSTED_ORIGINS = [
+    o.strip() for o in os.getenv("CSRF_TRUSTED_ORIGINS", "").split(",") if o.strip()
+]
 
 # Application definition
 
@@ -144,4 +151,4 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-DEMO_ACCESS_CODE = os.getenv("DEMO_ACCESS_CODE", "9ZYg8nQH4U")
+DEMO_ACCESS_CODE = os.getenv("DEMO_ACCESS_CODE", "")
