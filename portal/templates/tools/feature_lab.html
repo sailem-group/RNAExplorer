@@ -229,7 +229,7 @@
                         <th class="sortable" data-key="mnc_G">MNC G <span class="sort-icon"></span></th>
                         <th class="sortable" data-key="mnc_U">MNC U <span class="sort-icon"></span></th>
                         {% comment %} <th class="text-nowrap">Distance</th> {% endcomment %}
-                        <th>Link</th>
+                        {% comment %} <th>Link</th> {% endcomment %}
                       </tr>
                     </thead>
                     <tbody></tbody>
@@ -280,7 +280,7 @@
                         <th class="sortable" data-key="mnc_C">MNC C <span class="sort-icon"></span></th>
                         <th class="sortable" data-key="mnc_G">MNC G <span class="sort-icon"></span></th>
                         <th class="sortable" data-key="mnc_U">MNC U <span class="sort-icon"></span></th>
-                        <th>Link</th>
+                        {% comment %} <th>Link</th> {% endcomment %}
                       </tr>
                     </thead>
                     <tbody></tbody>
@@ -932,7 +932,6 @@
         <td class="text-nowrap">${fmtNum(r.mnc_G, 2)}</td>
         <td class="text-nowrap">${fmtNum(r.mnc_U, 2)}</td>
         ${showDistance ? `<td class="text-nowrap">${fmtNum(r.distance, 6)}</td>` : ""}
-        <td>${rowLinkHtml(r.link ?? "")}</td>
       `;
       tbodyEl.appendChild(tr);
     });

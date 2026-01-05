@@ -39,7 +39,7 @@
           <th class="sortable" data-key="mnc_G">MNC G <span class="sort-icon"></span></th>
           <th class="sortable" data-key="mnc_U">MNC U <span class="sort-icon"></span></th>
           <th class="sortable" data-key="distance">Distance <span class="sort-icon"></span></th>
-          <th>Link</th>
+          {% comment %} <th>Link</th> {% endcomment %}
         </tr>
       </thead>
       <tbody>
@@ -58,11 +58,11 @@
           <td>{{ r.mnc_G|floatformat:2 }}</td>
           <td>{{ r.mnc_U|floatformat:2 }}</td>
           <td>{{ r.distance|floatformat:6 }}</td>
-          <td>
+          {% comment %} <td>
             {% if r.link %}
             <a href="{{ r.link }}" target="_blank">link</a>
             {% endif %}
-          </td>
+          </td> {% endcomment %}
         </tr>
         {% empty %}
         <tr>
