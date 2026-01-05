@@ -12,6 +12,7 @@ from django.views.decorators.csrf import csrf_protect, ensure_csrf_cookie
 from django.utils.safestring import mark_safe
 from sklearn.neighbors import NearestNeighbors
 from functools import lru_cache
+from typing import Optional
 
 from .forms import FeatureExtractorForm
 from .helpers import (
@@ -89,7 +90,7 @@ def _safe_int(v):
     except Exception:
         return None
 
-def _row_props_from_db_row(row: dict, cleaned_seq: str | None = None) -> dict:
+def _row_props_from_db_row(row: dict, cleaned_seq: Optional[str] = None) -> dict:
     seq_clean = cleaned_seq if cleaned_seq is not None else _clean_rna((row.get("Sequence") or row.get("sequence") or "").strip())
     rna_type = (row.get("RNA Type") or row.get("rna_type") or row.get("type") or "").strip() or "Unknown"
     link = (row.get("link") or row.get("Link") or "").strip() or ""
@@ -281,8 +282,9 @@ def _build_or_load_interpretable_refs():
             feat_names = meta["feature_names"]
             labels = meta["labels"]
             counts = meta["counts"]
-            if X.shape[0] == Y.shape[0]:
-                return X, Y, feat_names, labels, counts
+            csv_indices = meta.get("csv_indices")
+
+            return X, Y, feat_names, labels, counts, csv_indices
         except Exception:
             pass
 
@@ -290,10 +292,15 @@ def _build_or_load_interpretable_refs():
     parts_found = glob.glob(os.path.join(DATABASE_PART_DIR, "database.part*.csv"))
     reader_iter = _load_sharded_csv_parts(DATABASE_PART_DIR) if parts_found else csv.DictReader(open(DATABASE_CSV_FILE))
 
+    csv_idx = 0
+
     for row in reader_iter:
         seq = (row.get("Sequence") or row.get("sequence") or "").strip()
+
         if not seq:
+            csv_idx += 1
             continue
+
         rec = {}
         for ksrc, kdst in [
             ("length", "length"),
@@ -308,6 +315,7 @@ def _build_or_load_interpretable_refs():
                     rec[kdst] = float(v)
                 except:
                     pass
+
         for b in "ACGU":
             v = row.get(f"mnc_{b}")
             if v not in (None, ""):
@@ -315,8 +323,11 @@ def _build_or_load_interpretable_refs():
                     rec[f"mnc_{b}"] = float(v)
                 except:
                     pass
+
         rec["_label"] = (row.get("RNA Type") or "").strip() or "Unknown"
+        rec["_csv_idx"] = csv_idx
         rows.append(rec)
+        csv_idx += 1
 
     if not rows:
         return np.zeros((0, 0), np.float32), np.zeros((0, 2), np.float32), [], [], {}
@@ -328,11 +339,22 @@ def _build_or_load_interpretable_refs():
     Y = TSNE(n_components=2, perplexity=30, random_state=42).fit_transform(X)
     counts = {lab: labels.count(lab) for lab in set(labels)}
 
+    csv_indices = [r["_csv_idx"] for r in rows]
+
     np.save(FEAT_REF_EMB_FILE, X)
     np.save(FEAT_REF_TSNE_FILE, Y)
     with open(FEAT_REF_META_FILE, "w") as f:
-        json.dump({"feature_names": feat_names, "labels": labels, "counts": counts}, f)
-    return X, Y, feat_names, labels, counts
+        json.dump(
+            {
+                "feature_names": feat_names,
+                "labels": labels,
+                "counts": counts,
+                "csv_indices": csv_indices,
+            },
+            f,
+        )
+
+    return X, Y, feat_names, labels, counts, csv_indices
 
 
 def _clean_rna(s: str) -> str:
@@ -504,15 +526,17 @@ def _tsne_refs_from_subset(Xi_sub: np.ndarray, seed=42):
     Yi = TSNE(n_components=2, perplexity=perp, random_state=seed).fit_transform(Xi_sub)
     return Yi.astype(np.float32)
 
-
-def _interp_refs_payload_from_embedding(Yi: np.ndarray, feat_labels: list[str]):
+def _interp_refs_payload_from_embedding(Yi: np.ndarray, feat_labels: list[str], interp_csv_indices: list[int],):
     payload = {}
     if Yi is None or Yi.shape[0] == 0:
         return payload
 
     parts_found = glob.glob(os.path.join(DATABASE_PART_DIR, "database.part*.csv"))
-    reader_iter = _load_sharded_csv_parts(DATABASE_PART_DIR) if parts_found else csv.DictReader(open(DATABASE_CSV_FILE))
-
+    reader_iter = (
+        _load_sharded_csv_parts(DATABASE_PART_DIR)
+        if parts_found
+        else csv.DictReader(open(DATABASE_CSV_FILE))
+    )
     seqs_all = []
     links_all = []
     for row in reader_iter:
@@ -523,22 +547,33 @@ def _interp_refs_payload_from_embedding(Yi: np.ndarray, feat_labels: list[str]):
 
     from collections import defaultdict
     idxs = defaultdict(list)
-    for i, lab in enumerate(feat_labels):
-        idxs[lab].append(i)
+    for interp_i, lab in enumerate(feat_labels):
+        idxs[lab].append(interp_i)
 
-    for lab, ids in idxs.items():
-        total = len(ids)
-        ids_shown = ids[:REFS_PER_TYPE_LIMIT]
+    for lab, interp_ids in idxs.items():
+        total = len(interp_ids)
+        ids_shown = interp_ids[:REFS_PER_TYPE_LIMIT]
+
         payload[lab] = {
-            "xs":   Yi[ids_shown, 0].tolist(),
-            "ys":   Yi[ids_shown, 1].tolist(),
-            "n":    len(ids_shown),
+            "xs": [float(Yi[i, 0]) for i in ids_shown],
+            "ys": [float(Yi[i, 1]) for i in ids_shown],
+            "n": len(ids_shown),
             "total": total,
-            "seqs":  [seqs_all[i]  if i < len(seqs_all)  else "" for i in ids_shown],
-            "links": [links_all[i] if i < len(links_all) else "" for i in ids_shown],
+            "seqs": [
+                seqs_all[interp_csv_indices[i]]
+                if interp_csv_indices[i] < len(seqs_all)
+                else ""
+                for i in ids_shown
+            ],
+            "links": [
+                links_all[interp_csv_indices[i]]
+                if interp_csv_indices[i] < len(links_all)
+                else ""
+                for i in ids_shown
+            ],
         }
-    return payload
 
+    return payload
 
 def _interp_refs_payload_from_embedding_subset(Yi: np.ndarray, feat_labels_sub: list[str],
                                                global_row_indices: list[int], full_counts: dict):
@@ -752,12 +787,12 @@ def feature_lab(request):
         return refs, Xr, Yr, (n_si, n_mi, n_pi)
 
     def _make_interp_refs_payload():
-        Xr, Yr, feat_names, feat_labels, feat_counts = _build_or_load_interpretable_refs()
+        Xr, Yr, feat_names, feat_labels, feat_counts, interp_csv_indices = _build_or_load_interpretable_refs()
         if Yr is not None and Yr.shape[0]:
-            payload = _interp_refs_payload_from_embedding(Yr, feat_labels)
+            payload = _interp_refs_payload_from_embedding(Yr, feat_labels,interp_csv_indices)
         else:
             payload = {}
-        return payload, Xr, Yr, feat_names
+        return payload, Xr, Yr, feat_names, interp_csv_indices
 
     form = FeatureExtractorForm() if request.method == "GET" else FeatureExtractorForm(request.POST, request.FILES)
     selected_feats = request.POST.getlist("features")
@@ -781,7 +816,7 @@ def feature_lab(request):
         return render(request, "tools/feature_lab.html", ctx)
 
     deep_refs, Xd, Yd, (n_si, n_mi, n_pi) = _make_deep_refs_payload()
-    interp_refs, Xi, Yi, feat_names = _make_interp_refs_payload()
+    interp_refs, Xi, Yi, feat_names, interp_csv_indices = _make_interp_refs_payload()
 
     if request.method == "GET":
         request.session["has_user_overlaid"] = False
@@ -879,7 +914,7 @@ def feature_lab(request):
         seen_match_seq = set()
         seen_match_plot = set()
         seen_nearest_seq = set()
-
+        csv_to_interp = {csv_i: i for i, csv_i in enumerate(interp_csv_indices)}
         if Yi is not None and isinstance(Yi, np.ndarray) and Yi.shape[0] > 0:
             parts_found = glob.glob(os.path.join(DATABASE_PART_DIR, "database.part*.csv"))
             reader_iter = _load_sharded_csv_parts(DATABASE_PART_DIR) if parts_found else csv.DictReader(open(DATABASE_CSV_FILE))
@@ -894,20 +929,25 @@ def feature_lab(request):
                     continue
 
                 seq_clean = _clean_rna(seq)
+                is_exact_match = (seq_clean == q)
+                is_fragment_match = (q in seq_clean and not is_exact_match)
+                is_match = is_exact_match or is_fragment_match
+                interp_i = csv_to_interp.get(idx)
 
-                if q in seq_clean:
-                    if seq_clean not in seen_match_plot and idx < Yi.shape[0]:
-                        xs_q_i.append(float(Yi[idx, 0]))
-                        ys_q_i.append(float(Yi[idx, 1]))
-                        seqs_q_i.append(seq_clean)
-                        links_q_i.append(link)
-                        seen_match_plot.add(seq_clean)
+                if interp_i is not None and is_match and seq_clean not in seen_match_plot:
+                    xs_q_i.append(float(Yi[interp_i, 0]))
+                    ys_q_i.append(float(Yi[interp_i, 1]))
+                    seqs_q_i.append(seq_clean)
+                    links_q_i.append(link)
+                    seen_match_plot.add(seq_clean)
 
-                    if seq_clean not in seen_match_seq:
+                    if is_match and seq_clean not in seen_match_seq:
                         seen_match_seq.add(seq_clean)
                         match_total += 1
                         if len(match_rows) < MAX_MATCH_ROWS_TO_SEND:
-                            match_rows.append(_row_props_from_db_row(row, cleaned_seq=seq_clean))
+                            match_rows.append(
+                                _row_props_from_db_row(row, cleaned_seq=seq_clean)
+                            )
 
                 if seq_clean in deep_nearest_seq_set and seq_clean not in seen_nearest_seq:
                     rec = _row_props_from_db_row(row, cleaned_seq=seq_clean)
@@ -964,7 +1004,7 @@ def feature_lab(request):
     elif panel == "interp":
         selected_feats = request.POST.getlist("features")
 
-        Xi_all, Yi_all, feat_names, feat_labels, feat_counts = _build_or_load_interpretable_refs()
+        Xi_all, Yi_all, feat_names, feat_labels, feat_counts , interp_csv_indices= _build_or_load_interpretable_refs()
 
         if selected_feats:
             sel_idx = [i for i, k in enumerate(feat_names) if k in selected_feats]
@@ -998,7 +1038,30 @@ def feature_lab(request):
         interp_refs = _interp_refs_payload_from_embedding_subset(Yi_use, feat_labels_sub, subset_rows, feat_counts)
 
         has_user = bool(request.session.get("has_user_overlaid"))
-        interp_payload = {"refs": interp_refs}
+        # interp_payload = {"refs": interp_refs}
+        interp_payload = {
+            "refs": interp_refs,
+            "query": {
+                "xs": [],
+                "ys": [],
+                "n": 0,
+                "seqs": [],
+                "links": [],
+            },
+            "tables": {
+                "query_seq": "",
+                "nearest": {
+                    "rows": [],
+                    "k": 0,
+                },
+                "matches": {
+                    "rows": [],
+                    "total": 0,
+                    "truncated": False,
+                    "sent": 0,
+                },
+            },
+        }
 
         if has_user:
             rows = request.session.get("extractor_results") or []
@@ -1027,7 +1090,7 @@ def feature_lab(request):
                     "meta": {"source": "feature_selection"},
                 }
 
-        return JsonResponse({"interp": interp_payload, "has_user": has_user})
+        return JsonResponse({"interp": interp_payload, "deep": {"refs": deep_refs,},"has_user": has_user})
 
     # panel == "both"
     input_mode = request.POST.get("input_mode", "text")
