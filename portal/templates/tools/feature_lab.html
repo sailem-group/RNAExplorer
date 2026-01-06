@@ -609,7 +609,7 @@
         symbol: "x",
         size: 14,
         color: "#111",
-        line: { width: 2, color: "#111" }
+        line: { width: 0, color: "#111" }
       }
     };
   }
@@ -921,7 +921,12 @@
         <td class="text-muted">${idx+1}</td>
         <td>${escapeHtml(r.type ?? "")}</td>
         <td style="font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;">
-          ${highlightFragment(r.sequence ?? "", frag)}
+          ${r.link
+            ? `<a href="${escapeHtml(r.link)}" target="_blank" class="sequence-link">
+                ${highlightFragment(r.sequence ?? "", frag)}
+              </a>`
+            : highlightFragment(r.sequence ?? "", frag)
+          }
         </td>
         <td class="text-nowrap">${escapeHtml(r.length ?? "")}</td>
         <td class="text-nowrap">${fmtNum(r.gc_pct, 2)}</td>

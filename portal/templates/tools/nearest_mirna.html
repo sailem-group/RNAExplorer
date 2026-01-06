@@ -47,7 +47,15 @@
         <tr>
           <td>{{ forloop.counter }}</td>
           <td>miRNA</td>
-          <td class="font-monospace">{{ r.sequence }}</td>
+          <td class="font-monospace">
+            {% if r.link %}
+              <a href="{{ r.link }}" target="_blank" class="sequence-link">
+                {{ r.sequence }}
+              </a>
+            {% else %}
+              {{ r.sequence }}
+            {% endif %}
+          </td>
           <td>{{ r.species|default:"-" }}</td>
           <td>{{ r.length }}</td>
           <td>{{ r.gc_pct|floatformat:2 }}</td>
