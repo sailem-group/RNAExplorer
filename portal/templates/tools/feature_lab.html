@@ -606,10 +606,10 @@
       text: texts,
       hovertemplate: "%{text}<extra></extra>",
       marker: {
-        symbol: "x",
-        size: 14,
+        symbol: "x-thin",
+        size: 10,
         color: "#111",
-        line: { width: 0, color: "#111" }
+        line: { width: 1, color: "#111" }
       }
     };
   }
@@ -630,10 +630,10 @@
       text: [`Exact match: ${pt.text}`],
       hovertemplate: "%{text}<extra></extra>",
       marker: {
-        symbol: "star",
-        size: 24,
+        symbol: "asterisk",
+        size: 15,
         color: "gold",
-        line: { width: 2, color: "#333" }
+        line: { width: 1, color: "#333" }
       }
     };
   }
@@ -670,15 +670,15 @@
     const nearestRows20 = (INTERP?.tables?.nearest?.rows || []).slice(0, 20);
     const nearestTypeSet = selectedNearestTypes();
 
-    const nxDeep = nearestXTrace(DEEP, nearestRows20, nearestTypeSet);
-    if (nxDeep) deepData.push(nxDeep);
-
     const nxInterp = nearestXTrace(INTERP, nearestRows20, nearestTypeSet);
     if (nxInterp) interpData.push(nxInterp);
 
     const qFrag = cleanRnaClient(INTERP?.tables?.query_seq || "");
-    const star = exactMatchStarTrace(INTERP, qFrag);
-    if (star) interpData.push(star);
+    const starInterp = exactMatchStarTrace(INTERP, qFrag);
+    if (starInterp) interpData.push(starInterp);
+
+    const starDeep = exactMatchStarTrace(DEEP, qFrag);
+    if (starDeep) deepData.push(starDeep);
 
     const p1 = Plotly.react("deepPlot", deepData, layoutCommon());
     const p2 = Plotly.react("interpPlot", interpData, layoutCommon());
