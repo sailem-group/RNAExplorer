@@ -195,7 +195,7 @@
 
               <div class="mb-3">
 
-                <div class="px-2"><h5 class="mb-2">Top 20 closest sequences</h5></div>
+                <div class="px-2"><h5 class="mb-2">Most similar sequences</h5></div>
                 <div class="d-flex flex-wrap gap-3 align-items-center px-2 mb-2 mt-2">
                   <span class="small text-muted">Filter Type:</span>
 
@@ -230,20 +230,21 @@
                         <th class="sortable" data-key="mnc_U">MNC U <span class="sort-icon"></span></th>
                         {% comment %} <th class="text-nowrap">Distance</th> {% endcomment %}
                         {% comment %} <th>Link</th> {% endcomment %}
+                        <th class="sortable" data-key="similarity">Similarity <span class="sort-icon"></span></th>
                       </tr>
                     </thead>
                     <tbody></tbody>
                   </table>
                 </div>
+                <div class="d-flex gap-2 align-items-center mt-2">
+                  <button id="btnNearestMore" class="btn btn-sm btn-outline-secondary d-none">Show all</button>
+                </div>
 
               </div>
 
-              <button id="btnNearest100" type="button" class="btn btn-sm btn-outline-primary mt-4 mb-4"> Open Nearest 100 miRNA
-              </button>
-
               <div class="mt-3">
                 <div class="d-flex justify-content-between align-items-center mt-3">
-                  <h5 class="mb-2 px-2">Sequences containing query fragment</h5>
+                  <h5 class="mb-2 px-2 mt-3">Sequences containing query fragment</h5>
                   <small id="matchesMeta" class="text-muted"></small>
                 </div>
 
@@ -638,16 +639,6 @@
     };
   }
 
-  function openNearest100Window(){
-    const q = cleanRnaClient(INTERP?.tables?.query_seq || "");
-    if (!q) return;
-
-    window.open(
-      `/rna/feature-explorer/nearest-mirna-100/?q=${encodeURIComponent(q)}`,
-      "_blank"
-    );
-  }
-
   async function renderPlots(){
     const sel = selectedTypes();
 
@@ -936,7 +927,7 @@
         <td class="text-nowrap">${fmtNum(r.mnc_C, 2)}</td>
         <td class="text-nowrap">${fmtNum(r.mnc_G, 2)}</td>
         <td class="text-nowrap">${fmtNum(r.mnc_U, 2)}</td>
-        ${showDistance ? `<td class="text-nowrap">${fmtNum(r.distance, 6)}</td>` : ""}
+        <td class="text-nowrap">${fmtNum(r.similarity, 2)}</td>
       `;
       tbodyEl.appendChild(tr);
     });
@@ -1040,6 +1031,7 @@
     const metaEl = document.getElementById("matchesMeta");
     const noteEl = document.getElementById("matchesNote");
     const btnMore = document.getElementById("btnMatchesMore");
+    const btnNearestMore = document.getElementById("btnNearestMore");
 
     if (!wrap) return;
 
@@ -1052,11 +1044,7 @@
     if (!nearestCtrl) nearestCtrl = makeTableController("tblNearest", "type-check-nearest");
     if (!matchesCtrl) matchesCtrl = makeTableController("tblMatches", "type-check-matches");
 
-    nearestCtrl.setData((tables.nearest?.rows || []).slice(0, 20), frag);
     matchesCtrl.setData((tables.matches?.rows || []), frag);
-
-    const btnNearest100 = document.getElementById("btnNearest100");
-    if (btnNearest100) btnNearest100.onclick = openNearest100Window;
 
     if (!nearestPlotWired) {
       document.querySelectorAll(".type-check-nearest").forEach(cb => {
@@ -1067,6 +1055,32 @@
       });
       nearestPlotWired = true;
     }
+
+    const allNearest = (tables.nearest?.rows || []);
+    const NEAREST_DEFAULT_N = Math.min(20, allNearest.length);
+    let nearestShowingAll = false;
+
+    const renderNearest = () => {
+      const rowsToShow = nearestShowingAll
+        ? allNearest
+        : allNearest.slice(0, NEAREST_DEFAULT_N);
+
+      nearestCtrl.setData(rowsToShow, frag);
+
+      if (!nearestShowingAll && allNearest.length > NEAREST_DEFAULT_N) {
+        btnNearestMore.classList.remove("d-none");
+        btnNearestMore.textContent = `Show all (${allNearest.length})`;
+      } else {
+        btnNearestMore.classList.add("d-none");
+      }
+    };
+
+    btnNearestMore.onclick = () => {
+      nearestShowingAll = true;
+      renderNearest();
+    };
+
+    renderNearest();
 
     const allReturned = (tables.matches?.rows || []);
     const total = Number(tables.matches?.total || allReturned.length || 0);

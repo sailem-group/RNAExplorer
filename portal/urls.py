@@ -18,5 +18,4 @@ urlpatterns = [
     path("tools/extractor/download/", views.feature_extractor_download, name="feature_extractor_download"),
     path("tools/feature-explorer/download-embeddings/", views.feature_explorer_download_embeddings, name="feature_explorer_download_embeddings"),
     path("feature-explorer/", views.feature_lab, name="feature_explorer"),
-    path("feature-explorer/nearest-mirna-100/", views.feature_lab_nearest_mirna_100_page, name="feature_lab_nearest_mirna_100_page"),
 ]

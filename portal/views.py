@@ -1,6 +1,6 @@
 # views.py (only the parts used by Feature Lab + help/about + downloads)
 
-import json, os, csv, glob, re
+import json, os, csv, glob, re, math
 import numpy as np
 from io import StringIO, BytesIO
 from itertools import product
@@ -35,6 +35,7 @@ FEAT_REF_META_FILE = os.path.join(EMB_DIR, "interp_meta.json")
 
 REFS_PER_TYPE_LIMIT = 23_116
 MAX_MATCH_ROWS_TO_SEND = 2000 
+MOST_MATCHING_SEQ_LIMIT = 100
 
 _RNAFM_SINGLETON = {"model": None, "alphabet": None, "emb_len": 640, "device": "cpu"}
 
@@ -79,6 +80,13 @@ def _safe_float(v):
         if v in (None, ""):
             return None
         return float(v)
+    except Exception:
+        return None
+
+def _distance_to_similarity(d, sigma=1.0):
+    try:
+        d = float(d)
+        return round(math.exp(-d / sigma), 3)
     except Exception:
         return None
 
@@ -615,74 +623,6 @@ def _interp_refs_payload_from_embedding_subset(Yi: np.ndarray, feat_labels_sub: 
         }
     return payload
 
-def _nearest_mirna_only(q_clean, Yd, ref_seqs, ref_links, n_si, n_mi, n_pi, k=100):
-    if not q_clean or Yd is None or Yd.shape[0] == 0:
-        return []
-
-    i_start = n_si
-    xs_q, ys_q = [], []
-
-    for j, seq in enumerate(ref_seqs["miRNA"]):
-        if q_clean in seq and (i_start + j) < Yd.shape[0]:
-            xs_q.append(float(Yd[i_start + j, 0]))
-            ys_q.append(float(Yd[i_start + j, 1]))
-
-    if not xs_q:
-        return []
-
-    cx = float(np.mean(xs_q))
-    cy = float(np.mean(ys_q))
-
-    cand = []
-    for j, seq in enumerate(ref_seqs["miRNA"]):
-        idx = i_start + j
-        if idx >= Yd.shape[0]:
-            break
-        dx = float(Yd[idx, 0]) - cx
-        dy = float(Yd[idx, 1]) - cy
-        dist = (dx*dx + dy*dy) ** 0.5
-        cand.append((dist, seq, ref_links["miRNA"][j] if j < len(ref_links["miRNA"]) else ""))
-
-    cand.sort(key=lambda t: t[0])
-
-    seq_to_meta = {}
-    for dist, seq, link in cand:
-        if seq in seq_to_meta:
-            continue
-        seq_to_meta[seq] = {"distance": float(dist), "link": link}
-        if len(seq_to_meta) >= k:
-            break
-
-    if not seq_to_meta:
-        return []
-
-    out = []
-    parts_found = glob.glob(os.path.join(DATABASE_PART_DIR, "database.part*.csv"))
-    reader_iter = _load_sharded_csv_parts(DATABASE_PART_DIR) if parts_found else csv.DictReader(open(DATABASE_CSV_FILE))
-
-    for row in reader_iter:
-        if (row.get("RNA Type") or "").strip() != "miRNA":
-            continue
-        seq_raw = (row.get("Sequence") or row.get("sequence") or "").strip()
-        if not seq_raw:
-            continue
-        seq_clean = _clean_rna(seq_raw)
-        meta = seq_to_meta.get(seq_clean)
-        if not meta:
-            continue
-
-        rec = _row_props_from_db_row(row, cleaned_seq=seq_clean)
-        rec["distance"] = meta["distance"]
-        rec["link"] = meta["link"] or rec.get("link") or ""
-        out.append(rec)
-
-        if len(out) >= len(seq_to_meta):
-            break
-
-    out.sort(key=lambda r: r.get("distance", 1e18))
-    return out[:k]
-
-
 @csrf_protect
 @ensure_csrf_cookie
 @require_http_methods(["GET", "POST"])
@@ -844,6 +784,25 @@ def feature_lab(request):
         if len(ref_seqs["piRNA"]) and len(ref_seqs["piRNA"]) != n_pi:
             ok = False
 
+        seq_to_emb = {}
+
+        i0, i1 = 0, n_si
+        i2, i3 = i1 + n_mi, i1 + n_mi + n_pi
+
+        def _fill_seq_emb(blockX, seqs):
+            m = min(blockX.shape[0], len(seqs))
+            for j in range(m):
+                s_clean = _clean_rna(seqs[j])
+                if s_clean not in seq_to_emb:
+                    seq_to_emb[s_clean] = blockX[j]
+
+        if n_si and ref_seqs["siRNA"]:
+            _fill_seq_emb(Xd[i0:i1], ref_seqs["siRNA"])
+        if n_mi and ref_seqs["miRNA"]:
+            _fill_seq_emb(Xd[i1:i2], ref_seqs["miRNA"])
+        if n_pi and ref_seqs["piRNA"]:
+            _fill_seq_emb(Xd[i2:i3], ref_seqs["piRNA"])
+
         xs_q, ys_q, seqs_q, links_q = [], [], [], []
         if Xd.shape[0]:
             i0, i1 = 0, n_si
@@ -871,29 +830,41 @@ def feature_lab(request):
         deep_nearest_dist = {}
 
         if xs_q and ys_q:
-            cx = float(np.mean(xs_q))
-            cy = float(np.mean(ys_q))
+            query_embs = []
+
+            for s in seqs_q:
+                emb = seq_to_emb.get(s)
+                if emb is not None:
+                    query_embs.append(emb)
+
+            if not query_embs:
+                return _respond(
+                    {"refs": deep_refs}, {"refs": interp_refs},
+                    has_user=False,
+                    banner="Unable to compute embedding-based similarity."
+                )
+
+            q_center = np.mean(np.asarray(query_embs), axis=0)
 
             candidates = []  # (dist, seq_clean)
 
             i0, i1 = 0, n_si
             i2, i3 = i1 + n_mi, i1 + n_mi + n_pi
 
-            def _add_candidates(blockY, seqs):
-                m = min(blockY.shape[0], len(seqs))
-                for j in range(m):
-                    s_clean = _clean_rna(seqs[j])
-                    dx = float(blockY[j, 0]) - cx
-                    dy = float(blockY[j, 1]) - cy
-                    d = (dx * dx + dy * dy) ** 0.5
-                    candidates.append((d, s_clean))
+            def _add_candidates(seqs):
+                for s_clean in seqs:
+                    emb = seq_to_emb.get(_clean_rna(s_clean))
+                    if emb is None:
+                        continue
+                    d = float(np.linalg.norm(emb - q_center))
+                    candidates.append((d, _clean_rna(s_clean)))
 
             if n_si and ref_seqs["siRNA"]:
-                _add_candidates(Yd[i0:i1], ref_seqs["siRNA"])
+                _add_candidates(ref_seqs["siRNA"])
             if n_mi and ref_seqs["miRNA"]:
-                _add_candidates(Yd[i1:i2], ref_seqs["miRNA"])
+                _add_candidates(ref_seqs["miRNA"])
             if n_pi and ref_seqs["piRNA"]:
-                _add_candidates(Yd[i2:i3], ref_seqs["piRNA"])
+                _add_candidates(ref_seqs["piRNA"])
 
             candidates.sort(key=lambda t: t[0])
 
@@ -902,7 +873,7 @@ def feature_lab(request):
                     continue
                 deep_nearest_seq_set.add(s_clean)
                 deep_nearest_dist[s_clean] = float(d)
-                if len(deep_nearest_seq_set) >= 20:
+                if len(deep_nearest_seq_set) >= MOST_MATCHING_SEQ_LIMIT:
                     break
 
         xs_q_i, ys_q_i, seqs_q_i, links_q_i = [], [], [], []
@@ -950,8 +921,9 @@ def feature_lab(request):
                             )
 
                 if seq_clean in deep_nearest_seq_set and seq_clean not in seen_nearest_seq:
+                    dist = float(deep_nearest_dist.get(seq_clean, 1e18))
                     rec = _row_props_from_db_row(row, cleaned_seq=seq_clean)
-                    rec["distance"] = float(deep_nearest_dist.get(seq_clean, 1e18))
+                    rec["similarity"] = _distance_to_similarity(dist)
                     nearest_rows.append(rec)
                     seen_nearest_seq.add(seq_clean)
 
@@ -986,8 +958,8 @@ def feature_lab(request):
             "tables": {
                 "query_seq": q,
                 "nearest": {
-                    "rows": sorted(nearest_rows, key=lambda r: r.get("distance", 1e18))[:20],
-                    "k": 20,
+                    "rows": sorted(nearest_rows, key=lambda r: r.get("similarity", 0), reverse=True)[:MOST_MATCHING_SEQ_LIMIT],
+                    "k": MOST_MATCHING_SEQ_LIMIT,
                 },
                 "matches": {
                     "rows": match_rows,
@@ -1198,51 +1170,6 @@ def feature_lab(request):
     }
     request.session["has_user_overlaid"] = True
     return _respond(deep_payload, interp_payload, has_user=True)
-
-@require_GET
-def feature_lab_nearest_mirna_100_page(request):
-    q = _clean_rna(request.GET.get("q", ""))
-    if not q:
-        return render(request, "tools/nearest_mirna.html", {
-            "rows": [],
-            "query": "",
-        })
-
-    ref_seqs, ref_links = _load_ref_sequences_by_type()
-
-    emb_dir = os.path.join(APP_DIR, "data", "embeddings")
-
-    def _load(name_candidates):
-        for nm in name_candidates:
-            p = os.path.join(emb_dir, nm)
-            if os.path.exists(p):
-                arr = np.load(p).astype(np.float32)
-                if arr.ndim == 1:
-                    arr = arr.reshape(1, -1)
-                return arr
-        return np.zeros((0, _RNAFM_SINGLETON["emb_len"]), np.float32)
-
-    si = _load(["siRNA_embeddings.npy"])
-    mi = _load(["miRNA_embeddings.npy"])
-    pi = _load(["piRNA_embeddings.npy"])
-
-    Xd, Yd, counts = _build_or_load_joint_refs(si, mi, pi)
-
-    rows = _nearest_mirna_only(
-        q_clean=q,
-        Yd=Yd,
-        ref_seqs=ref_seqs,
-        ref_links=ref_links,
-        n_si=counts.get("siRNA", 0),
-        n_mi=counts.get("miRNA", 0),
-        n_pi=counts.get("piRNA", 0),
-        k=100,
-    )
-
-    return render(request, "tools/nearest_mirna.html", {
-        "rows": rows,
-        "query": q,
-    })
 
 @require_GET
 def feature_explorer_download_embeddings(request):
