@@ -39,21 +39,6 @@ MOST_MATCHING_SEQ_LIMIT = 100
 
 _RNAFM_SINGLETON = {"model": None, "alphabet": None, "emb_len": 640, "device": "cpu"}
 
-CSV_HEADER_MAP = [
-    ("type",       "Type"),
-    ("sequence",   "Sequence"),
-    ("length",     "Length"),
-    ("gc_pct",     "GC %"),
-    ("gc_skew",    "GC skew"),
-    ("at_au_skew", "AT/AU skew"),
-    ("mnc_A",      "MNC A"),
-    ("mnc_C",      "MNC C"),
-    ("mnc_G",      "MNC G"),
-    ("mnc_U",      "MNC U"),
-    ("species",    "Species"),
-    ("link",       "Link"),
-]
-
 def _is_ajax(request):
     return request.POST.get("__ajax__") == "1" or request.headers.get("x-requested-with") == "XMLHttpRequest"
 
@@ -981,13 +966,6 @@ def feature_lab(request):
             }
         }
 
-        request.session["nearest_table_rows"] = nearest_rows
-        request.session["matches_table_rows"] = match_rows
-        request.session["matches_table_meta"] = {
-            "total": int(match_total),
-            "sent": len(match_rows),
-        }
-
         return _respond(deep_payload, interp_payload, has_user=False)
 
 
@@ -1188,44 +1166,6 @@ def feature_lab(request):
     }
     request.session["has_user_overlaid"] = True
     return _respond(deep_payload, interp_payload, has_user=True)
-
-@require_GET
-def download_nearest_sequences(request):
-    rows = request.session.get("nearest_table_rows") or []
-    if not rows:
-        return HttpResponse("No nearest-sequence results to download.", status=400)
-
-    header_map = CSV_HEADER_MAP + [("similarity", "Similarity")]
-
-    out = StringIO()
-    writer = csv.writer(out)
-    writer.writerow([label for _, label in header_map])
-
-    for r in rows:
-        writer.writerow([r.get(key, "") for key, _ in header_map])
-
-    resp = HttpResponse(out.getvalue(), content_type="text/csv")
-    resp["Content-Disposition"] = 'attachment; filename="nearest_sequences.csv"'
-    return resp
-
-@require_GET
-def download_matching_sequences(request):
-    rows = request.session.get("matches_table_rows") or []
-    if not rows:
-        return HttpResponse("No matching-sequence results to download.", status=400)
-
-    header_map = CSV_HEADER_MAP
-
-    out = StringIO()
-    writer = csv.writer(out)
-    writer.writerow([label for _, label in header_map])
-
-    for r in rows:
-        writer.writerow([r.get(key, "") for key, _ in header_map])
-
-    resp = HttpResponse(out.getvalue(), content_type="text/csv")
-    resp["Content-Disposition"] = 'attachment; filename="matching_sequences.csv"'
-    return resp
 
 @require_GET
 def feature_explorer_download_embeddings(request):
