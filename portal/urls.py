@@ -18,4 +18,9 @@ urlpatterns = [
     path("tools/extractor/download/", views.feature_extractor_download, name="feature_extractor_download"),
     path("tools/feature-explorer/download-embeddings/", views.feature_explorer_download_embeddings, name="feature_explorer_download_embeddings"),
     path("feature-explorer/", views.feature_lab, name="feature_explorer"),
+
+    # Download
+    path("download/nearest/", views.download_nearest_sequences, name="download_nearest_sequences"),
+    path("download/matches/", views.download_matching_sequences, name="download_matching_sequences"),
+
 ]
