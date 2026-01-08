@@ -31,6 +31,9 @@
     opacity: .65;
   }
   th.sortable:hover .sort-icon { opacity: 1; }
+  .col-hidden {
+    display: none !important;
+  }
 
 </style>
 
@@ -215,26 +218,32 @@
                     <input class="form-check-input type-check-nearest" type="checkbox" value="piRNA" id="tN_pi" checked>
                     <label class="form-check-label" for="tN_pi">piRNA</label>
                   </div>
+
+                  <div class="dropdown">
+                    <span class="small text-muted">Show/hide columns:</span>
+                    <button class="btn btn-outline-primary btn-sm dropdown-toggle" data-bs-toggle="dropdown">Columns</button>
+                    <ul class="dropdown-menu p-2" id="colsNearest" data-table="tblNearest"></ul>
+                  </div>
+
                 </div>
 
                 <div class="table-responsive results-table mb-3" style="max-height: 380px; overflow:auto;">
                   <table class="table table-striped align-middle mb-0" id="tblNearest">
                     <thead class="table-light" style="position: sticky; top: 0; z-index: 2;">
                       <tr>
-                        <th>Index</th>
-                        <th>Type</th>
-                        <th>Sequence</th>
-                        <th class="sortable" data-key="length">Length <span class="sort-icon"></span></th>
-                        <th class="sortable" data-key="gc_pct">GC % <span class="sort-icon"></span></th>
-                        <th class="sortable" data-key="gc_skew">GC skew <span class="sort-icon"></span></th>
-                        <th class="sortable" data-key="at_au_skew">AT/AU skew <span class="sort-icon"></span></th>
-                        <th class="sortable" data-key="mnc_A">MNC A <span class="sort-icon"></span></th>
-                        <th class="sortable" data-key="mnc_C">MNC C <span class="sort-icon"></span></th>
-                        <th class="sortable" data-key="mnc_G">MNC G <span class="sort-icon"></span></th>
-                        <th class="sortable" data-key="mnc_U">MNC U <span class="sort-icon"></span></th>
-                        {% comment %} <th class="text-nowrap">Distance</th> {% endcomment %}
-                        {% comment %} <th>Link</th> {% endcomment %}
-                        <th class="sortable" data-key="similarity">Similarity <span class="sort-icon"></span></th>
+                        <th data-col="index">Index</th>
+                        <th data-col="type">Type</th>
+                        <th data-col="sequence">Sequence</th>
+                        <th data-col="species">Species</th>
+                        <th data-col="length" class="sortable" data-key="length">Length <span class="sort-icon"></span></th>
+                        <th data-col="gc_pct" class="sortable" data-key="gc_pct">GC % <span class="sort-icon"></span></th>
+                        <th data-col="gc_skew" class="sortable" data-key="gc_skew">GC skew <span class="sort-icon"></span></th>
+                        <th data-col="at_au_skew" class="sortable" data-key="at_au_skew">AT/AU skew <span class="sort-icon"></span></th>
+                        <th data-col="mnc_A" class="sortable" data-key="mnc_A">MNC A <span class="sort-icon"></span></th>
+                        <th data-col="mnc_C" class="sortable" data-key="mnc_C">MNC C <span class="sort-icon"></span></th>
+                        <th data-col="mnc_G" class="sortable" data-key="mnc_G">MNC G <span class="sort-icon"></span></th>
+                        <th data-col="mnc_U" class="sortable" data-key="mnc_U">MNC U <span class="sort-icon"></span></th>
+                        <th data-col="similarity" class="sortable" data-key="similarity">Similarity <span class="sort-icon"></span></th>
                       </tr>
                     </thead>
                     <tbody></tbody>
@@ -267,6 +276,11 @@
                     <input class="form-check-input type-check-matches" type="checkbox" value="piRNA" id="tM_pi" checked>
                     <label class="form-check-label" for="tM_pi">piRNA</label>
                   </div>
+                  <div class="dropdown">
+                    <span class="small text-muted">Show/hide columns:</span>
+                    <button class="btn btn-outline-primary btn-sm dropdown-toggle" data-bs-toggle="dropdown">Columns</button>
+                    <ul class="dropdown-menu p-2" id="colsMatches" data-table="tblMatches"></ul>
+                  </div>
                   <div class="ms-auto"><small id="matchesMeta" class="text-muted"></small></div>
                 </div>
 
@@ -275,17 +289,18 @@
                   <table class="table table-striped align-middle mb-0" id="tblMatches">
                     <thead class="table-light" style="position: sticky; top: 0; z-index: 2;">
                       <tr>
-                        <th>Index</th>
-                        <th>Type</th>
-                        <th>Sequence</th>
-                        <th class="sortable" data-key="length">Length <span class="sort-icon"></span></th>
-                        <th class="sortable" data-key="gc_pct">GC % <span class="sort-icon"></span></th>
-                        <th class="sortable" data-key="gc_skew">GC skew <span class="sort-icon"></span></th>
-                        <th class="sortable" data-key="at_au_skew">AT/AU skew <span class="sort-icon"></span></th>
-                        <th class="sortable" data-key="mnc_A">MNC A <span class="sort-icon"></span></th>
-                        <th class="sortable" data-key="mnc_C">MNC C <span class="sort-icon"></span></th>
-                        <th class="sortable" data-key="mnc_G">MNC G <span class="sort-icon"></span></th>
-                        <th class="sortable" data-key="mnc_U">MNC U <span class="sort-icon"></span></th>
+                        <th data-col="index">Index</th>
+                        <th data-col="type">Type</th>
+                        <th data-col="sequence">Sequence</th>
+                        <th data-col="species">Species</th>
+                        <th data-col="length" class="sortable" data-key="length">Length <span class="sort-icon"></span></th>
+                        <th data-col="gc_pct" class="sortable" data-key="gc_pct">GC % <span class="sort-icon"></span></th>
+                        <th data-col="gc_skew" class="sortable" data-key="gc_skew">GC skew <span class="sort-icon"></span></th>
+                        <th data-col="at_au_skew" class="sortable" data-key="at_au_skew">AT/AU skew <span class="sort-icon"></span></th>
+                        <th data-col="mnc_A" class="sortable" data-key="mnc_A">MNC A <span class="sort-icon"></span></th>
+                        <th data-col="mnc_C" class="sortable" data-key="mnc_C">MNC C <span class="sort-icon"></span></th>
+                        <th data-col="mnc_G" class="sortable" data-key="mnc_G">MNC G <span class="sort-icon"></span></th>
+                        <th data-col="mnc_U" class="sortable" data-key="mnc_U">MNC U <span class="sort-icon"></span></th>
                         {% comment %} <th>Link</th> {% endcomment %}
                       </tr>
                     </thead>
@@ -330,6 +345,7 @@
   ];
 
   const CSV_NEAREST_EXTRA = ["similarity", "Similarity"];
+  const FIXED_COLS = new Set(["index", "type", "sequence"]);
 
   function showPageBlocker(show = true) {
     const el = document.getElementById("pageBlocker");
@@ -374,6 +390,23 @@
     { label: "#2", text: `UGAGG` },
     { label: "#3", text: `UAAUGCU` }
   ];
+
+  function renderSpeciesWithLinks(speciesStr, linkStr) {
+    if (!speciesStr) return "";
+
+    const species = speciesStr.split(";").map(s => s.trim()).filter(Boolean);
+    const links   = (linkStr || "").split(";").map(l => l.trim());
+
+    return species.map((sp, i) => {
+      const link = links[i] || "";
+      const label = escapeHtml(sp);
+
+      const content = link
+        ? `<a href="${escapeHtml(link)}" target="_blank" rel="noopener">${label}</a>`
+        : label;
+      return i < species.length - 1 ? `${content},` : content;
+    }).join("<br>");
+  }
 
   function renderExampleChips(containerId, items, onPick) {
     const host = document.getElementById(containerId);
@@ -914,7 +947,8 @@
   }
 
   function renderTableRows(tbodyEl, rows, frag, opts={}){
-    const { showDistance=false } = opts;
+    const table = tbodyEl.closest("table");
+    const showDistance = !!table?.querySelector('thead th[data-key="similarity"]');
     tbodyEl.innerHTML = "";
 
     if (!rows || rows.length === 0) {
@@ -930,25 +964,22 @@
     rows.forEach((r, idx) => {
       const tr = document.createElement("tr");
       tr.innerHTML = `
-        <td class="text-muted">${idx+1}</td>
-        <td>${escapeHtml(r.type ?? "")}</td>
-        <td style="font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;">
-          ${r.link
-            ? `<a href="${escapeHtml(r.link)}" target="_blank" class="sequence-link">
-                ${highlightFragment(r.sequence ?? "", frag)}
-              </a>`
-            : highlightFragment(r.sequence ?? "", frag)
-          }
-        </td>
-        <td class="text-nowrap">${escapeHtml(r.length ?? "")}</td>
-        <td class="text-nowrap">${fmtNum(r.gc_pct, 2)}</td>
-        <td class="text-nowrap">${fmtNum(r.gc_skew, 2)}</td>
-        <td class="text-nowrap">${fmtNum(r.at_au_skew, 2)}</td>
-        <td class="text-nowrap">${fmtNum(r.mnc_A, 2)}</td>
-        <td class="text-nowrap">${fmtNum(r.mnc_C, 2)}</td>
-        <td class="text-nowrap">${fmtNum(r.mnc_G, 2)}</td>
-        <td class="text-nowrap">${fmtNum(r.mnc_U, 2)}</td>
-        <td class="text-nowrap">${fmtNum(r.similarity, 2)}</td>
+        <td data-col="index" class="text-muted">${idx+1}</td>
+        <td data-col="type">${escapeHtml(r.type ?? "")}</td>
+        <td data-col="sequence" style="font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;">${highlightFragment(r.sequence ?? "", frag)}</td>
+        <td data-col="species" class="text-nowrap">${renderSpeciesWithLinks(r.species, r.link)}</td>
+        <td data-col="length" class="text-nowrap">${escapeHtml(r.length ?? "-")}</td>
+        <td data-col="gc_pct" class="text-nowrap">${fmtNum(r.gc_pct, 2)}</td>
+        <td data-col="gc_skew" class="text-nowrap">${fmtNum(r.gc_skew, 2)}</td>
+        <td data-col="at_au_skew" class="text-nowrap">${fmtNum(r.at_au_skew, 2)}</td>
+        <td data-col="mnc_A" class="text-nowrap">${fmtNum(r.mnc_A, 2)}</td>
+        <td data-col="mnc_C" class="text-nowrap">${fmtNum(r.mnc_C, 2)}</td>
+        <td data-col="mnc_G" class="text-nowrap">${fmtNum(r.mnc_G, 2)}</td>
+        <td data-col="mnc_U" class="text-nowrap">${fmtNum(r.mnc_U, 2)}</td>
+        ${showDistance
+          ? `<td data-col="similarity" class="text-nowrap">${fmtNum(r.similarity, 2)}</td>`
+          : ""
+        }
       `;
       tbodyEl.appendChild(tr);
     });
@@ -1229,6 +1260,62 @@
     URL.revokeObjectURL(url);
   }
 
+  function getToggleableColumns(tableId) {
+    const base = CSV_COLUMNS.filter(([key]) => !FIXED_COLS.has(key));
+    const table = document.getElementById(tableId);
+    if (table?.querySelector('thead th[data-col="similarity"]')) {
+      return [...base, CSV_NEAREST_EXTRA];
+    }
+    return base;
+  }
+
+  function initColumnMenu(menuId) {
+    const menu = document.getElementById(menuId);
+    if (!menu) return;
+
+    const tableId = menu.dataset.table;
+    const table   = document.getElementById(tableId);
+    if (!table) return;
+
+    menu.innerHTML = "";
+
+    const columns = getToggleableColumns(tableId);
+
+    columns.forEach(([key, label]) => {
+      if (!table.querySelector(`thead th[data-col="${key}"]`)) return;
+
+      const li = document.createElement("li");
+      li.innerHTML = `
+        <label class="dropdown-item">
+          <input type="checkbox"
+                class="me-2"
+                data-col="${key}"
+                checked>
+          ${label}
+        </label>
+      `;
+      menu.appendChild(li);
+    });
+
+    menu.querySelectorAll("input[type=checkbox]").forEach(cb => {
+      cb.addEventListener("change", () => {
+        toggleColumn(tableId, cb.dataset.col, cb.checked);
+      });
+    });
+  }
+
+  function toggleColumn(tableId, colKey, show) {
+    const table = document.getElementById(tableId);
+    if (!table) return;
+
+    table.querySelectorAll(`[data-col="${colKey}"]`)
+      .forEach(el => el.classList.toggle("col-hidden", !show));
+  }
+
+  window.addEventListener("load", () => {
+    initColumnMenu("colsNearest");
+    initColumnMenu("colsMatches");
+  });
 
   document.getElementById("btnDownloadNearest")
     ?.addEventListener("click", () => {
@@ -1248,8 +1335,6 @@
         "matching_sequences.csv"
       );
     });
-
-
 
 </script>
 
