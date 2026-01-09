@@ -196,7 +196,7 @@
             <!-- Query tables (shown only when INTERP.tables exists) -->
             <div id="interpTables" class="mt-4 d-none">
 
-              <div class="mb-3">
+              <div class="mb-3" id="nearestBlock">
 
                 <div class="d-flex justify-content-between align-items-center mt-3">
                   <h5 class="mb-2">Most similar sequences</h5>
@@ -257,7 +257,7 @@
 
               <div class="mt-3">
                 <div class="d-flex justify-content-between align-items-center mt-3">
-                  <h5 class="mb-2 px-2 mt-3">Sequences containing query fragment</h5>
+                  <h5 class="mb-2 px-2 mt-3" id="matchesTitle">Sequences containing query fragment</h5>
                   <button id="btnDownloadMatches" class="btn btn-outline-primary btn-sm ms-2" type="button"> Download CSV</button>
                 </div>
 
@@ -371,7 +371,7 @@
     {
       label: "#1",
       text:
-        `>seq_A\nGAACUUGAUGAAGAAUCUAUC\n>seq_B\nUAGCUACGUAGUACUUACUGAU\n>seq_c\nAUAUGCUAUGGCUAUGCUAAUGCUAGCUAU`
+        `>seq_A\nGACCAAAGAGCAAGUGACA\n>seq_B\nGAGCAGUGGUGACGGGUGU\n>seq_c\nCUACGAACCUGAAGCCUAA`
     },
     {
       label: "#2",
@@ -386,26 +386,56 @@
   ];
 
   const QUERY_EXAMPLES = [
-    { label: "#1", text: `AUUCUU` },
-    { label: "#2", text: `UGAGG` },
-    { label: "#3", text: `UAAUGCU` }
+    { label: "#1", text: `AGCAGUG` },
+    { label: "#2", text: `UACGAAC` },
+    { label: "#3", text: `GGCAACA` }
   ];
 
-  function renderSpeciesWithLinks(speciesStr, linkStr) {
-    if (!speciesStr) return "";
+  function renderSpeciesWithLinks(speciesStr, linkStr, maxVisible = 2) {
+    if (!speciesStr) return "-";
 
-    const species = speciesStr.split(";").map(s => s.trim()).filter(Boolean);
-    const links   = (linkStr || "").split(";").map(l => l.trim());
+    const species = speciesStr
+      .split(";")
+      .map(s => s.trim())
+      .filter(Boolean);
 
-    return species.map((sp, i) => {
-      const link = links[i] || "";
+    if (!species.length) return "-";
+
+    const links = (linkStr || "").split(";").map(l => l.trim());
+
+    const renderOne = (sp, i) => {
       const label = escapeHtml(sp);
-
-      const content = link
+      const link  = links[i] || "";
+      return link
         ? `<a href="${escapeHtml(link)}" target="_blank" rel="noopener">${label}</a>`
         : label;
-      return i < species.length - 1 ? `${content},` : content;
-    }).join("<br>");
+    };
+
+    if (species.length <= maxVisible) {
+      return species.map(renderOne).join(",<br>");
+    }
+
+    const visible = species.slice(0, maxVisible).map(renderOne).join(",<br>");
+    const hidden  = species.slice(maxVisible).map(renderOne).join(",<br>");
+    const moreCnt = species.length - maxVisible;
+
+    const uid = `sp_${Math.random().toString(36).slice(2)}`;
+
+    return `
+      <div class="species-cell">
+        <span>${visible}</span>,
+        <span class="species-more"
+              role="button"
+              tabindex="0"
+              style="cursor:pointer; color:#0d6efd"
+              onclick="this.style.display='none'; document.getElementById('${uid}').style.display='inline'">
+          … (${moreCnt} more)
+        </span>
+        <span id="${uid}" style="display:none">
+          <br>${hidden}
+        </span>
+      </div>
+    `;
   }
 
   function renderExampleChips(containerId, items, onPick) {
@@ -1092,6 +1122,22 @@
     wrap.classList.remove("d-none");
 
     const frag = cleanRnaClient(tables.query_seq || "");
+
+    const isExactMode = tables.matches?.mode === "exact";
+
+    const titleEl = document.getElementById("matchesTitle");
+    if (titleEl) {
+      titleEl.textContent = isExactMode
+        ? "Exact matching sequences"
+        : "Sequences containing query fragment";
+    }
+    
+    const nearestBlock = document.getElementById("nearestBlock");
+    if (isExactMode) {
+      nearestBlock?.classList.add("d-none");
+    } else {
+      nearestBlock?.classList.remove("d-none");
+    }
 
     if (!nearestCtrl) nearestCtrl = makeTableController("tblNearest", "type-check-nearest");
     if (!matchesCtrl) matchesCtrl = makeTableController("tblMatches", "type-check-matches");
