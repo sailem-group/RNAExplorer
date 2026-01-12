@@ -903,6 +903,7 @@ def feature_lab(request):
             "deep_payload_json": mark_safe(json.dumps(deep_payload)),
             "interp_payload_json": mark_safe(json.dumps(interp_payload)),
             "has_user": has_user,
+            "is_production": IS_PRODUCTION,
         }
         if banner:
             ctx["inline_banner"] = banner

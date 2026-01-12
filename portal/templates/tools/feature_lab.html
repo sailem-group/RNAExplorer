@@ -54,7 +54,13 @@
           <h4 class="mb-1">Visualise sequences
             <span class="ms-2 align-middle" role="button" tabindex="0"
                   data-bs-toggle="tooltip" data-bs-placement="right"
-                  title="Project your sequences into a reference RNA-FM t-SNE and an interpretable-features t-SNE. We’ll overlay up to 10 sequences on precomputed maps.">
+                  title="{% if is_production %}
+                    Project sequences into precomputed RNA-FM and interpretable feature t-SNE maps.
+                    Exact database matches are used in production.
+                  {% else %}
+                    Project up to 10 sequences into a reference RNA-FM t-SNE and an interpretable features t-SNE.
+                    Embeddings and projections are computed on the fly (development mode).
+                  {% endif %}">
               <i class="bi bi-info-circle"></i>
             </span>
           </h4>
@@ -329,7 +335,7 @@
 
 <script type="module">
   import Plotly from "https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/+esm";
-
+  window.IS_PRODUCTION = {{ is_production|yesno:"true,false" }};
   const CSV_COLUMNS = [
     ["type",       "Type"],
     ["sequence",   "Sequence"],
@@ -371,17 +377,17 @@
     {
       label: "#1",
       text:
-        `>seq_A\nGACCAAAGAGCAAGUGACA\n>seq_B\nGAGCAGUGGUGACGGGUGU\n>seq_c\nCUACGAACCUGAAGCCUAA`
+        `>Sequence 1\nGACCAAAGAGCAAGUGACA\n>Sequence 2\nGAGCAGUGGUGACGGGUGU\n>Sequence 3\nCUACGAACCUGAAGCCUAA\nSequence 4\nUGGCAACAGUGGCUGAGAA`
     },
     {
       label: "#2",
       text:
-        `>seq_A\nGGAUUCUACUGUUGAAGAAAU\n>seq_B\nUACGUUUGGUGUUGGAUCAAAU\n>seq_c\nUUACGUAGCUAUGCUAGUACUAGCUAUUGA`
+        `>seq_A\nCGAAGAAGCUGCACGUCAA\n>seq_B\nAUGUGCGUUAGUCAGUGGCUC\n>seq_c\nUACAGGAAGAAAGUGGAUGCAU`
     },
     {
       label: "#3",
       text:
-        `>seq_A\nUCAGUUGAUGGACAAUCUUGA\n>seq_B\nUAAUGCUAAUCGUGAUAGUCUA\n>seq_c\nUGUACUUGAUAUGCUAGCUAUGCUAUGUAA`
+        `>seq_A\nCACCUCGUAGCUUGGUCACGA\n>seq_B\nUAAUGCUAAUCGUGAUAGUCUA\n>seq_c\nUCCAGAAGCUGAGGUGCAAGGAUCCC`
     }
   ];
 
@@ -528,7 +534,7 @@
     const linkSrc  = user.links ?? [];
     const buckets = {};
     for (let i=0;i<user.xs.length;i++){
-      const g = "Sequence";
+      const g = "Sequences";
       if (!buckets[g]) buckets[g] = {
         type: "scattergl",
         mode: "markers",
@@ -957,8 +963,11 @@
     return n.toFixed(nd);
   }
 
-  function highlightFragment(seq, frag){
+  function highlightFragment(seq, frag, mode = ""){
     const s = (seq ?? "").toString();
+    if (window.IS_PRODUCTION && mode === "exact") {
+      return escapeHtml(s);
+    }
     const f = (frag ?? "").toString();
     if (!s || !f) return escapeHtml(s);
     const i = s.indexOf(f);
@@ -978,6 +987,7 @@
 
   function renderTableRows(tbodyEl, rows, frag, opts={}){
     const table = tbodyEl.closest("table");
+    const tableMode = table?.dataset?.mode || "";
     const showDistance = !!table?.querySelector('thead th[data-key="similarity"]');
     tbodyEl.innerHTML = "";
 
@@ -996,7 +1006,7 @@
       tr.innerHTML = `
         <td data-col="index" class="text-muted">${idx+1}</td>
         <td data-col="type">${escapeHtml(r.type ?? "")}</td>
-        <td data-col="sequence" style="font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;">${highlightFragment(r.sequence ?? "", frag)}</td>
+        <td data-col="sequence" style="font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;">${highlightFragment(r.sequence ?? "", frag, tableMode)}</td>
         <td data-col="species" class="text-nowrap">${renderSpeciesWithLinks(r.species, r.link)}</td>
         <td data-col="length" class="text-nowrap">${escapeHtml(r.length ?? "-")}</td>
         <td data-col="gc_pct" class="text-nowrap">${fmtNum(r.gc_pct, 2)}</td>
@@ -1024,6 +1034,7 @@
     let frag = "";
     let sortKey = null;
     let sortAsc = true;
+    let tableMode = "";
 
     function selectedTypesSet() {
       const picked = new Set(typeChecks.filter(c => c.checked).map(c => c.value));
@@ -1124,6 +1135,10 @@
     const frag = cleanRnaClient(tables.query_seq || "");
 
     const isExactMode = tables.matches?.mode === "exact";
+    const matchesTable = document.getElementById("tblMatches");
+    if (matchesTable) {
+      matchesTable.dataset.mode = isExactMode ? "exact" : "";
+    }
 
     const titleEl = document.getElementById("matchesTitle");
     if (titleEl) {
@@ -1142,7 +1157,7 @@
     if (!nearestCtrl) nearestCtrl = makeTableController("tblNearest", "type-check-nearest");
     if (!matchesCtrl) matchesCtrl = makeTableController("tblMatches", "type-check-matches");
 
-    matchesCtrl.setData((tables.matches?.rows || []), frag);
+    matchesCtrl.setData((tables.matches?.rows || []), frag, isExactMode ? "exact" : "");
 
     if (!nearestPlotWired) {
       document.querySelectorAll(".type-check-nearest").forEach(cb => {
