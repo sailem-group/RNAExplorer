@@ -41,6 +41,12 @@ _RNAFM_SINGLETON = {"model": None, "alphabet": None, "emb_len": 640, "device": "
 
 IS_PRODUCTION = os.getenv("ENV", "").lower() == "production"
 
+_REF_SEQ_CACHE = None
+_REF_LINK_CACHE = None
+_INTERP_REF_PAYLOAD_CACHE = None
+_DEEP_REF_PAYLOAD_CACHE = None
+_SEQ_TO_CSV_INDEX = None
+
 def _is_ajax(request):
     return request.POST.get("__ajax__") == "1" or request.headers.get("x-requested-with") == "XMLHttpRequest"
 
@@ -510,6 +516,15 @@ def _load_ref_sequences_by_type():
             links[rna_type].append(link)
     return seqs, links
 
+def _load_ref_sequences_by_type_cached():
+    global _REF_SEQ_CACHE, _REF_LINK_CACHE
+    if _REF_SEQ_CACHE is not None:
+        return _REF_SEQ_CACHE, _REF_LINK_CACHE
+
+    seqs, links = _load_ref_sequences_by_type()
+    _REF_SEQ_CACHE = seqs
+    _REF_LINK_CACHE = links
+    return seqs, links
 
 def _build_or_load_joint_refs(si_arr, mi_arr, pi_arr):
     Xc, Yc, Cc = _load_refs_tsne()
@@ -827,7 +842,7 @@ def feature_lab(request):
         i0, i1 = 0, n_si
         i2, i3 = i1 + n_mi, i1 + n_mi + n_pi
 
-        ref_seqs_by_type, ref_links_by_type = _load_ref_sequences_by_type()
+        ref_seqs_by_type, ref_links_by_type = _load_ref_sequences_by_type_cached()
 
         # Desired limits based on embeddings
         lim_si_raw = min(n_si, REFS_PER_TYPE_LIMIT)
@@ -929,7 +944,7 @@ def feature_lab(request):
                 banner="Please paste a single sequence to query."
             )
 
-        ref_seqs, ref_links = _load_ref_sequences_by_type()
+        ref_seqs, ref_links = _load_ref_sequences_by_type_cached()
         ok = True
         if len(ref_seqs["siRNA"]) and len(ref_seqs["siRNA"]) != n_si:
             ok = False
@@ -1288,7 +1303,7 @@ def feature_lab(request):
 
         xs_q, ys_q, seqs_q, links_q = [], [], [], []
 
-        ref_seqs_by_type, ref_links_by_type = _load_ref_sequences_by_type()
+        ref_seqs_by_type, ref_links_by_type = _load_ref_sequences_by_type_cached()
 
         i0, i1 = 0, n_si
         i2, i3 = i1 + n_mi, i1 + n_mi + n_pi

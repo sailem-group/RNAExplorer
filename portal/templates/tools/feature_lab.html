@@ -353,6 +353,14 @@
   const CSV_NEAREST_EXTRA = ["similarity", "Similarity"];
   const FIXED_COLS = new Set(["index", "type", "sequence"]);
 
+  let SEQ_INDEX_CACHE = {
+    deep: null,
+    interp: null
+  };
+
+  let LAST_HIGHLIGHT_FRAGMENT = null;
+  const HIGHLIGHT_CACHE = new Map();
+
   function showPageBlocker(show = true) {
     const el = document.getElementById("pageBlocker");
     if (el) el.classList.toggle("show", !!show);
@@ -396,6 +404,32 @@
     { label: "#2", text: `UACGAAC` },
     { label: "#3", text: `GGCAACA` }
   ];
+
+  function updateTypeColors(){
+    const sel = selectedTypes();
+
+    const update = (plotId) => {
+      const gd = document.getElementById(plotId);
+      if (!gd?.data) return;
+
+      gd.data.forEach((trace, i) => {
+        if (!TYPE_COLORS[trace.name]) return;
+
+        const color = sel.size === 0
+          ? TYPE_COLORS_DIM[trace.name]
+          : sel.has(trace.name)
+            ? TYPE_COLORS[trace.name]
+            : TYPE_COLORS_DIM[trace.name];
+
+        Plotly.restyle(plotId, {
+          "marker.color": color
+        }, [i]);
+      });
+    };
+
+    update("deepPlot");
+    update("interpPlot");
+  }
 
   function renderSpeciesWithLinks(speciesStr, linkStr, maxVisible = 2) {
     if (!speciesStr) return "-";
@@ -602,26 +636,8 @@
     };
   }
 
-  function layoutDeep(){
-    const base = layoutCommon();
-    return {
-      ...base,
-      autosize: false,
-      width: 700,
-      height: 700,
-
-      xaxis: {
-        ...base.xaxis,
-        range: [-40, 40],
-        autorange: false
-      },
-      yaxis: {
-        ...base.yaxis,
-        range: [-40, 40],
-        autorange: false
-      },
-    };
-  }
+  const DEEP_LAYOUT   = layoutCommon();
+  const INTERP_LAYOUT = layoutCommon();
 
   let DEEP  = {{ deep_payload_json|default:"null"|safe }};
   let INTERP= {{ interp_payload_json|default:"null"|safe }};
@@ -666,10 +682,19 @@
     return idx;
   }
 
+  function getSeqIndex(payload, kind){
+    if (!payload?.refs) return new Map();
+
+    if (!SEQ_INDEX_CACHE[kind]) {
+      SEQ_INDEX_CACHE[kind] = buildSeqIndex(payload);
+    }
+    return SEQ_INDEX_CACHE[kind];
+  }
+
   function nearestXTrace(payload, nearestRows, typeSet){
     if (!nearestRows || nearestRows.length === 0) return null;
 
-    const idx = buildSeqIndex(payload);
+    const idx = getSeqIndex(payload, "interp");
     const xs = [], ys = [], texts = [];
 
     nearestRows.forEach(r => {
@@ -708,7 +733,7 @@
   function exactMatchStarTrace(payload, queryFrag){
     if (!queryFrag) return null;
 
-    const idx = buildSeqIndex(payload);
+    const idx = getSeqIndex(payload, payload === DEEP ? "deep" : "interp");
     const pt = idx.get(queryFrag);
     if (!pt) return null;
 
@@ -761,10 +786,12 @@
     const starDeep = exactMatchStarTrace(DEEP, qFrag);
     if (starDeep) deepData.push(starDeep);
 
-    const p1 = Plotly.react("deepPlot", deepData, layoutCommon());
-    const p2 = Plotly.react("interpPlot", interpData, layoutCommon());
+    const p1 = Plotly.react("deepPlot", deepData, DEEP_LAYOUT);
+    const p2 = Plotly.react("interpPlot", interpData, INTERP_LAYOUT);
 
     await Promise.all([p1, p2]);
+    Plotly.Plots.resize("deepPlot");
+    Plotly.Plots.resize("interpPlot");
 
     renderInterpTables();
   }
@@ -774,10 +801,7 @@
   renderPlots().finally(() => showPageBlocker(false));
 
   ["cbSi","cbMi","cbPi"].forEach(id=>{
-    document.getElementById(id)?.addEventListener("change", () => {
-      showPageBlocker(true);
-      renderPlots().finally(() => showPageBlocker(false));
-    });
+    document.getElementById(id)?.addEventListener("change", updateTypeColors);
   });
 
   function wireMode(selId, blocks){
@@ -845,8 +869,8 @@
 
       const data = await resp.json();
 
-      if (data.deep)   { DEEP   = data.deep;   window.DEEP   = DEEP; }
-      if (data.interp) { INTERP = data.interp; window.INTERP = INTERP; }
+      if (data.deep)   { DEEP   = data.deep;   window.DEEP   = DEEP; SEQ_INDEX_CACHE.deep = null;}
+      if (data.interp) { INTERP = data.interp; window.INTERP = INTERP; SEQ_INDEX_CACHE.interp = null;}
 
       await renderPlots();
 
@@ -965,19 +989,34 @@
 
   function highlightFragment(seq, frag, mode = ""){
     const s = (seq ?? "").toString();
+    const f = (frag ?? "").toString();
+
     if (window.IS_PRODUCTION && mode === "exact") {
       return escapeHtml(s);
     }
-    const f = (frag ?? "").toString();
+
     if (!s || !f) return escapeHtml(s);
+
+    const cacheKey = `${mode}|${s}|${f}`;
+    const cached = HIGHLIGHT_CACHE.get(cacheKey);
+    if (cached) return cached;
+
     const i = s.indexOf(f);
-    if (i < 0) return escapeHtml(s);
-    return (
-      escapeHtml(s.slice(0,i)) +
-      `<mark class="px-1">${escapeHtml(f)}</mark>` +
-      escapeHtml(s.slice(i+f.length))
-    );
+    let result;
+
+    if (i < 0) {
+      result = escapeHtml(s);
+    } else {
+      result =
+        escapeHtml(s.slice(0,i)) +
+        `<mark class="px-1">${escapeHtml(f)}</mark>` +
+        escapeHtml(s.slice(i+f.length));
+    }
+
+    HIGHLIGHT_CACHE.set(cacheKey, result);
+    return result;
   }
+
 
   function rowLinkHtml(link){
     if (!link) return "";
@@ -1001,6 +1040,8 @@
       return;
     }
 
+    const domFrag = document.createDocumentFragment();
+
     rows.forEach((r, idx) => {
       const tr = document.createElement("tr");
       tr.innerHTML = `
@@ -1021,8 +1062,10 @@
           : ""
         }
       `;
-      tbodyEl.appendChild(tr);
+      domFrag.appendChild(tr);
     });
+
+    tbodyEl.replaceChildren(domFrag);
   }
 
   function makeTableController(tableId, typeCheckboxClass) {
@@ -1125,6 +1168,7 @@
     const noteEl = document.getElementById("matchesNote");
     const btnMore = document.getElementById("btnMatchesMore");
     const btnNearestMore = document.getElementById("btnNearestMore");
+    HIGHLIGHT_CACHE.clear();
 
     if (!wrap) return;
 
