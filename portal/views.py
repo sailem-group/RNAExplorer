@@ -50,16 +50,57 @@ def _is_ajax(request):
 def help(request):
     faqs = [
         {
-            "title": "Feature Extractor",
-            "body": "Use the Feature Extractor to compute or load features (k-mers, GC%, skews, MNC) and visualize them.",
-            "tags": ["features", "kmer", "umap"],
+            "title": "Which input formats are supported for sequence upload?",
+            "body": (
+                "You can provide sequences as plain text, FASTA files, or CSV files. "
+                "For CSV uploads, the sequence column must be named 'sequence'. "
+            ),
+            "tags": ["input", "fasta", "csv", "upload"],
         },
         {
-            "title": "Feature Explorer",
-            "body": "Upload sequences (Text/FASTA/CSV) and compare to reference siRNA/miRNA/piRNA embeddings with t-SNE.",
-            "tags": ["explorer", "tsne", "rn a-fm"],
+            "title": "How are RNA-FM embeddings used in the RNAExplorer?",
+            "body": (
+                "RNA-FM embeddings are computed for uploaded sequences using a pretrained RNA-FM model. "
+                "These embeddings are projected onto a shared 2D space using k-nearest-neighbor projection "
+                "against reference siRNA, miRNA, and piRNA embeddings."
+            ),
+            "tags": ["rna-fm", "embedding", "deep learning"],
+        },
+        {
+            "title": "What happens when I use the Query Sequence panel?",
+            "body": (
+                "The Query Sequence panel allows you to paste a single RNA sequence and search for exact, "
+                "fragment, and embedding-based nearest matches in the reference database. "
+                "Matching sequences are highlighted on both the deep embedding plot and the interpretable feature plot, "
+                "and a similarity-ranked results table is generated."
+            ),
+            "tags": ["query", "similarity", "matching"],
+        },
+        {
+            "title": "What interpretable features are computed for each sequence?",
+            "body": (
+                "For each sequence, the tool computes length, GC percentage, GC skew, AT/AU skew, "
+                "mononucleotide composition (MNC), and 2-mer and 3-mer frequencies. "
+            ),
+            "tags": ["features", "kmer", "gc content", "mnc"],
+        },
+        {
+            "title": "Can I select specific features for visualization?",
+            "body": (
+                "Yes. In the Interpretable Features panel, you can select a subset of features. "
+                "The reference dataset is re-projected using t-SNE based only on the selected features, "
+            ),
+            "tags": ["feature selection", "tsne", "interpretable"],
+        },
+        {
+            "title": "What downloads are available?",
+            "body": (
+                "You can download exact, fragment, and embedding-based nearest matches sequence data with feature tables as a CSV file. "
+            ),
+            "tags": ["download", "csv"],
         },
     ]
+
     q = (request.GET.get("q") or "").strip().lower()
     if q:
         faqs = [
@@ -68,6 +109,7 @@ def help(request):
             or q in f["body"].lower()
             or any(q in t for t in f.get("tags", []))
         ]
+
     return render(request, "help.html", {"faqs": faqs, "q": q})
 
 def help_getting_started(request):

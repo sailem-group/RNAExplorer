@@ -2,13 +2,142 @@
 {% block content %}
 <div class="container py-4">
   <div class="row justify-content-center">
-    <div class="col-12 col-lg-8">
-      <h1 class="fw-bold mb-3">Getting started</h1>
-      <p class="text-muted">Short intro to explore sequence features.</p>
-      <ol>
-        <li>Explore Sequence Feature via <a href="{% url 'feature_explorer' %}">Feature Explorer</a>.</li>
-      </ol>
+    <div class="col-12 col-lg-9">
+
+      <h1 class="fw-bold mb-3">RNAExplorer – Help & Tutorial</h1>
+      <p class="text-muted mb-4">
+        RNAExplorer is an interactive web application for exploring, comparing,
+        and analysing small RNA sequences using both deep learning embeddings
+        and biologically interpretable features.
+      </p>
+
+      <!-- Section 1 -->
+      <h3 class="mt-4">1. Visualise Sequences</h3>
+      <p>
+        RNAExplorer allows you to visualise small RNA sequences. Sequences can be provided using:
+      </p>
+      <ul>
+        <li>Plain text input</li>
+        <li>FASTA files</li>
+        <li>CSV files (sequence column must be named <code>sequence</code>)</li>
+      </ul>
+      <p>
+        After entering sequences, click <strong>“Overlay / Visualize”</strong>
+        to project them onto the reference dataset.
+        In production mode, the system automatically detects exact matches
+        within the reference database when available. In local mode, the system generate the RNA-FM embeddings for user provided sequences 
+        with interpretable features and project then on top of reference sequences from database.
+      </p>
+
+      <!-- Section 2 -->
+      <h3 class="mt-4">2. RNA-FM Embedding</h3>
+      <p>
+        The top plot displays the <strong>RNA-FM embedding</strong>,
+        generated using a pretrained RNA-FM model.
+        This view places your sequences within the landscape of known
+        <strong>siRNA, miRNA, and piRNA</strong> reference sequences.
+      </p>
+      <ul>
+        <li>Each point represents a reference sequence</li>
+        <li>Colours indicate RNA class</li>
+        <li>Your uploaded sequences are highlighted</li>
+        <li>Query matches appear as red markers</li>
+      </ul>
+      <p>
+        This plot provides a global, similarity-based view of how your sequences
+        relate to known small RNA classes.
+      </p>
+
+      <!-- Section 3 -->
+      <h3 class="mt-4">3. Interpretable Feature Embedding</h3>
+      <p>
+        The bottom plot shows an <strong>interpretable feature embedding</strong>
+        based on biologically meaningful sequence properties rather than
+        deep learning representations.
+      </p>
+
+      <p>Features include:</p>
+      <ul>
+        <li>Sequence length</li>
+        <li>GC percentage</li>
+        <li>GC skew</li>
+        <li>AT/AU skew</li>
+        <li>Mononucleotide composition (A, C, G, U)</li>
+        <li>2-mer and 3-mer frequencies</li>
+      </ul>
+
+      <p>
+        Selecting or deselecting feature checkboxes will
+        <strong>only update the interpretable feature embedding</strong>.
+        The reference dataset is re-projected using the selected features,
+        allowing focused exploration of which properties drive separation
+        between RNA classes.
+      </p>
+
+      <!-- Section 4 -->
+      <h3 class="mt-4">4. Query Sequence Search</h3>
+      <p>
+        The <strong>Query sequence</strong> panel allows you to paste
+        a single RNA sequence and search the reference database.
+      </p>
+
+      <p>
+        Clicking <strong>“Find in reference”</strong> triggers two analyses:
+      </p>
+      <ul>
+        <li><strong>Exact matching sequences and reference sequences containing the query fragment</strong></li>
+        <li><strong>Most similar sequences</strong> based on RNA-FM embedding similarity</li>
+      </ul>
+
+      <p>
+        Matching sequences are highlighted on both embedding plots and
+        reported in detailed tables below.
+      </p>
+
+      <!-- Section 5 -->
+      <h3 class="mt-4">5. Interactive Tables</h3>
+      <p>
+        RNAExplorer provides integrated tables for detailed inspection and
+        downstream analysis.
+      </p>
+      <p>Each table includes:</p>
+      <ul>
+        <li>RNA type (siRNA, miRNA, piRNA)</li>
+        <li>Sequence</li>
+        <li>Species (linked to original source)</li>
+        <li>Length, GC %, skew metrics</li>
+        <li>Mononucleotide composition</li>
+      </ul>
+
+      <p>
+        Users can filter by RNA type, show or hide columns,
+        sort values, and download the visible data as CSV files.
+      </p>
+
+      <!-- Section 6 -->
+      <h3 class="mt-4">6. Interactive Points and External Links</h3>
+      <p>
+        Individual sequences shown in the plots are fully interactive.
+        Clicking a point redirects you to the original data source
+        from which the sequence was derived, providing access to
+        additional metadata and biological context.
+      </p>
+
+      <!-- Section 7 -->
+      <h3 class="mt-4">7. Downloads</h3>
+      <p>
+        RNAExplorer allows downloading:
+      </p>
+      <ul>
+        <li>Computed feature tables as CSV files</li>
+        <li>Download plots by clicking on icon <svg viewBox="0 0 1000 1000" class="icon" height="1em" width="1em"><path d="m500 450c-83 0-150-67-150-150 0-83 67-150 150-150 83 0 150 67 150 150 0 83-67 150-150 150z m400 150h-120c-16 0-34 13-39 29l-31 93c-6 15-23 28-40 28h-340c-16 0-34-13-39-28l-31-94c-6-15-23-28-40-28h-120c-55 0-100-45-100-100v-450c0-55 45-100 100-100h800c55 0 100 45 100 100v450c0 55-45 100-100 100z m-400-550c-138 0-250 112-250 250 0 138 112 250 250 250 138 0 250-112 250-250 0-138-112-250-250-250z m365 380c-19 0-35 16-35 35 0 19 16 35 35 35 19 0 35-16 35-35 0-19-16-35-35-35z" transform="matrix(1 0 0 -1 0 850)" style="fill: rgba(68, 68, 68, 0.3);"></path></svg> </li>
+      </ul>
+      <p>
+        Downloads include only the data currently displayed in the interface.
+      </p>
+
     </div>
   </div>
 </div>
 {% endblock %}
+
