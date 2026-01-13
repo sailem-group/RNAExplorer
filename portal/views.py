@@ -43,9 +43,6 @@ IS_PRODUCTION = os.getenv("ENV", "").lower() == "production"
 
 _REF_SEQ_CACHE = None
 _REF_LINK_CACHE = None
-_INTERP_REF_PAYLOAD_CACHE = None
-_DEEP_REF_PAYLOAD_CACHE = None
-_SEQ_TO_CSV_INDEX = None
 
 def _is_ajax(request):
     return request.POST.get("__ajax__") == "1" or request.headers.get("x-requested-with") == "XMLHttpRequest"
@@ -281,66 +278,6 @@ def _load_refs_tsne():
         print("Error loading ref shards:", e)
         return None, None, None
 
-def _iter_database_csv_rows(selected_types: set[str]) -> list[tuple[str, str, str, dict]]:
-    items = []
-    parts_found = glob.glob(os.path.join(DATABASE_PART_DIR, "database.part*.csv"))
-    if parts_found:
-        reader_iter = _load_sharded_csv_parts(DATABASE_PART_DIR)
-    else:
-        if not os.path.exists(DATABASE_CSV_FILE):
-            return []
-        reader_iter = csv.DictReader(open(DATABASE_CSV_FILE, newline=""))
-
-    def _float(x):
-        try:
-            return float(x)
-        except Exception:
-            return None
-
-    for row in reader_iter:
-        rna_type = (row.get("RNA Type") or "").strip()
-        if selected_types and rna_type and rna_type not in selected_types:
-            continue
-
-        name = row.get("ID") or row.get("id") or "seq"
-        seq = (row.get("Sequence") or row.get("sequence") or "").strip()
-        if not seq:
-            continue
-
-        feats = {
-            "length": int(float(row.get("length", 0) or 0)) if row.get("length") not in (None, "") else None,
-            "gc_content": _float(row.get("gc_content")),
-            "gc_skew": _float(row.get("gc_skew")),
-            "au_or_at_skew": _float(row.get("au_at_skew")),
-            "mnc": {},
-            "kmer2": {},
-            "kmer3": {},
-        }
-        # Mono-nucleotide composition
-        for base in "ACGU":
-            v = _float(row.get(f"mnc_{base}"))
-            if v is not None:
-                feats["mnc"][base] = v
-
-        # k-mer 2
-        for a in "ACGU":
-            for b in "ACGU":
-                v = _float(row.get(f"kmer_2_{a}{b}"))
-                if v is not None:
-                    feats["kmer2"][f"{a}{b}"] = v
-
-        # k-mer 3
-        for a in "ACGU":
-            for b in "ACGU":
-                for c in "ACGU":
-                    v = _float(row.get(f"kmer_3_{a}{b}{c}"))
-                    if v is not None:
-                        feats["kmer3"][f"{a}{b}{c}"] = v
-
-        items.append((name, seq, "RNA", feats))
-
-    return items
-
 def _build_or_load_interpretable_refs():
     if os.path.exists(FEAT_REF_EMB_FILE):
         try:
@@ -349,57 +286,96 @@ def _build_or_load_interpretable_refs():
             with open(FEAT_REF_META_FILE, "r") as f:
                 meta = json.load(f)
 
-            return (
-                X,
-                Y,
-                meta["feature_names"],
-                meta["labels"],
-                meta["counts"],
-                meta.get("csv_indices", []),
-            )
+            return (X, Y, meta["feature_names"], meta["labels"], meta["counts"], meta["csv_indices"],)
         except Exception as e:
-            print("Error loading interpretable refs:", e)
-            pass
+            print("Failed loading interpretable refs, rebuilding:", e)
+
+    feature_names = (
+        ["length", "gc_pct", "gc_skew", "at_au_skew"]
+        + [f"mnc_{b}" for b in "ACGU"]
+        + [f"kmer_2_{a}{b}" for a in "ACGU" for b in "ACGU"]
+        + [f"kmer_3_{a}{b}{c}" for a in "ACGU" for b in "ACGU" for c in "ACGU"]
+    )
 
     rows = []
+    labels = []
+    csv_indices = []
 
-    items = _iter_database_csv_rows(selected_types=set())
+    parts_found = glob.glob(os.path.join(DATABASE_PART_DIR, "database.part*.csv"))
+    reader_iter = (
+        _load_sharded_csv_parts(DATABASE_PART_DIR)
+        if parts_found
+        else csv.DictReader(open(DATABASE_CSV_FILE))
+    )
 
-    for csv_idx, (name, seq, alpha, feats) in enumerate(items):
-        flat = _flatten_feature_row(name, seq, alpha, feats)
+    for csv_idx, row in enumerate(reader_iter):
+        seq = (row.get("Sequence") or row.get("sequence") or "").strip()
+        if not seq:
+            continue
+
+        seq_clean = _clean_rna(seq)
+
+        feats = {
+            "length": int(float(row["length"])) if row.get("length") else None,
+            "gc_content": float(row["gc_content"]) if row.get("gc_content") else None,
+            "gc_skew": float(row["gc_skew"]) if row.get("gc_skew") else None,
+            "au_or_at_skew": float(row.get("au_at_skew")) if row.get("au_at_skew") else None,
+            "mnc": {},
+            "kmer2": {},
+            "kmer3": {},
+        }
+
+        for b in "ACGU":
+            v = row.get(f"mnc_{b}")
+            if v not in (None, ""):
+                feats["mnc"][b] = float(v)
+
+        for a in "ACGU":
+            for b in "ACGU":
+                k = f"{a}{b}"
+                v = row.get(f"kmer_2_{k}")
+                if v not in (None, ""):
+                    feats["kmer2"][k] = float(v)
+
+        for a in "ACGU":
+            for b in "ACGU":
+                for c in "ACGU":
+                    k = f"{a}{b}{c}"
+                    v = row.get(f"kmer_3_{k}")
+                    if v not in (None, ""):
+                        feats["kmer3"][k] = float(v)
+
+        flat = _flatten_feature_row("seq", seq_clean, "RNA", feats)
 
         rec = {}
-        for k, v in flat.items():
-            if k in ("name", "sequence", "alphabet") or v is None:
-                continue
-            try:
-                rec[k] = float(v)
-            except Exception:
-                continue
+        for k in feature_names:
+            rec[k] = float(flat.get(k, 0.0) or 0.0)
 
-        rec["_label"] = "Unknown"
-        rec["_csv_idx"] = csv_idx
+        rna_type = (row.get("RNA Type") or "").strip() or "Unknown"
+
         rows.append(rec)
+        labels.append(rna_type)
+        csv_indices.append(csv_idx)
 
     if not rows:
-        return (np.zeros((0, 0), np.float32), np.zeros((0, 2), np.float32), [], [], {}, [],)
+        return (np.zeros((0, 0), np.float32), np.zeros((0, 2), np.float32), [], [], {}, [], )
 
-    feat_names = sorted(k for r in rows for k in r if k != "_label")
-    X = np.asarray([[r.get(k, 0.0) for k in feat_names] for r in rows], np.float32)
-    labels = [r["_label"] for r in rows]
+    X = np.asarray([[r[k] for k in feature_names] for r in rows], np.float32)
 
     from sklearn.manifold import TSNE
     Y = TSNE(n_components=2, perplexity=30, random_state=42).fit_transform(X)
 
-    counts = {lab: labels.count(lab) for lab in set(labels)}
-    csv_indices = [r["_csv_idx"] for r in rows]
-
+    os.makedirs(EMB_DIR, exist_ok=True)
     np.save(FEAT_REF_EMB_FILE, X)
     np.save(FEAT_REF_TSNE_FILE, Y)
+
+    from collections import Counter
+    counts = dict(Counter(labels))
+
     with open(FEAT_REF_META_FILE, "w") as f:
         json.dump(
             {
-                "feature_names": feat_names,
+                "feature_names": feature_names,
                 "labels": labels,
                 "counts": counts,
                 "csv_indices": csv_indices,
@@ -407,99 +383,10 @@ def _build_or_load_interpretable_refs():
             f,
         )
 
-    return X, Y, feat_names, labels, counts, csv_indices
-
-
-# def _build_or_load_interpretable_refs():
-#     X, Y, feat_names, labels, counts = None, None, None, None, None
-
-#     if os.path.exists(FEAT_REF_EMB_FILE):
-#         try:
-#             X = np.load(FEAT_REF_EMB_FILE).astype(np.float32)
-#             Y = np.load(FEAT_REF_TSNE_FILE).astype(np.float32)
-#             with open(FEAT_REF_META_FILE, "r") as f:
-#                 meta = json.load(f)
-#             feat_names = meta["feature_names"]
-#             labels = meta["labels"]
-#             counts = meta["counts"]
-#             csv_indices = meta.get("csv_indices")
-
-#             return X, Y, feat_names, labels, counts, csv_indices
-#         except Exception:
-#             pass
-
-#     rows = []
-#     parts_found = glob.glob(os.path.join(DATABASE_PART_DIR, "database.part*.csv"))
-#     reader_iter = _load_sharded_csv_parts(DATABASE_PART_DIR) if parts_found else csv.DictReader(open(DATABASE_CSV_FILE))
-
-#     csv_idx = 0
-
-#     for row in reader_iter:
-#         seq = (row.get("Sequence") or row.get("sequence") or "").strip()
-
-#         if not seq:
-#             csv_idx += 1
-#             continue
-
-#         rec = {}
-#         for ksrc, kdst in [
-#             ("length", "length"),
-#             ("gc_content", "gc_pct"),
-#             ("gc_skew", "gc_skew"),
-#             ("au_at_skew", "at_au_skew"),
-#             ("au_or_at_skew", "at_au_skew"),
-#         ]:
-#             v = row.get(ksrc)
-#             if v not in (None, ""):
-#                 try:
-#                     rec[kdst] = float(v)
-#                 except:
-#                     pass
-
-#         for b in "ACGU":
-#             v = row.get(f"mnc_{b}")
-#             if v not in (None, ""):
-#                 try:
-#                     rec[f"mnc_{b}"] = float(v)
-#                 except:
-#                     pass
-
-#         rec["_label"] = (row.get("RNA Type") or "").strip() or "Unknown"
-#         rec["_csv_idx"] = csv_idx
-#         rows.append(rec)
-#         csv_idx += 1
-
-#     if not rows:
-#         return np.zeros((0, 0), np.float32), np.zeros((0, 2), np.float32), [], [], {}
-
-#     feat_names = sorted({k for r in rows for k in r.keys() if k != "_label"})
-#     X = np.asarray([[float(r.get(k, 0.0)) for k in feat_names] for r in rows], np.float32)
-#     labels = [r["_label"] for r in rows]
-#     from sklearn.manifold import TSNE
-#     Y = TSNE(n_components=2, perplexity=30, random_state=42).fit_transform(X)
-#     counts = {lab: labels.count(lab) for lab in set(labels)}
-
-#     csv_indices = [r["_csv_idx"] for r in rows]
-
-#     np.save(FEAT_REF_EMB_FILE, X)
-#     np.save(FEAT_REF_TSNE_FILE, Y)
-#     with open(FEAT_REF_META_FILE, "w") as f:
-#         json.dump(
-#             {
-#                 "feature_names": feat_names,
-#                 "labels": labels,
-#                 "counts": counts,
-#                 "csv_indices": csv_indices,
-#             },
-#             f,
-#         )
-
-#     return X, Y, feat_names, labels, counts, csv_indices
-
+    return X, Y, feature_names, labels, counts, csv_indices
 
 def _clean_rna(s: str) -> str:
     return "".join(ch for ch in str(s).upper() if ch.isalpha()).replace("T", "U")
-
 
 def _load_ref_sequences_by_type():
     seqs = {"siRNA": [], "miRNA": [], "piRNA": []}
@@ -659,12 +546,6 @@ def _compute_all_features(seq_raw: str):
         "kmer2": k2,
         "kmer3": k3,
     }
-
-
-@lru_cache(maxsize=128)
-def _compute_refs_tsne_for_subset(key: tuple, Xi_shape0: int, perplexity=30):
-    return None
-
 
 def _tsne_refs_from_subset(Xi_sub: np.ndarray, seed=42):
     from sklearn.manifold import TSNE
