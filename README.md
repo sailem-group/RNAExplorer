@@ -85,6 +85,16 @@ https://doi.org/10.5281/zenodo.18124277
 
 ---
 
+## License
+
+**Non-Commercial Use Only**
+
+This project is licensed for **non-commercial use only**.
+You may not use this code or data in any revenue-generating product,
+service, SaaS platform, or commercial AI system.
+
+---
+
 ## Installation (Local Development)
 
 ### Requirements
