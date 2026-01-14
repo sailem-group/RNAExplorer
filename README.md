@@ -3,6 +3,7 @@
 RNAExplorer is an interactive web application for exploring, comparing, and analysing small RNA sequences using both deep learning–based embeddings and biologically interpretable sequence features.
 
 The platform enables intuitive visualisation of user-provided RNA sequences alongside curated reference datasets of siRNA, miRNA, and piRNA.
+
 ---
 
 ## Features
@@ -75,12 +76,12 @@ Only data currently visible in the interface are included in downloads.
 
 ## Citation
 
-The RNAExplorer manuscript is currently under preparation.
+The RNAExplorer publication is underway.
 
-Until the associated publication is available, please cite the RNAExplorer data resource:
+Please cite the curated reference datasets available on Zenodo:
 
 **RNAExplorer Reference Dataset**  
-Zenodo. https://doi.org/10.5281/zenodo.18124277
+https://doi.org/10.5281/zenodo.18124277
 
 ---
 
