@@ -1,11 +1,9 @@
 from django.urls import path, include
 from . import views
 from django.views.generic import RedirectView
-from core.views import demo_access
 
 urlpatterns = [
     path("accounts/", include("django.contrib.auth.urls")),
-    path("demo-access/", demo_access, name="demo_access"),
 
     path("", RedirectView.as_view(pattern_name="feature_explorer", permanent=True), name="home"),
 
