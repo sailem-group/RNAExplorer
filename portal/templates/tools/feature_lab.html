@@ -436,31 +436,28 @@
   function renderSpeciesWithLinks(speciesStr, linkStr, maxVisible = 2) {
     if (!speciesStr) return "-";
 
-    const species = speciesStr
-      .split(";")
-      .map(s => s.trim())
-      .filter(Boolean);
+    const species = speciesStr.split(";").map(s => s.trim()).filter(Boolean);
+    const links   = (linkStr || "").split(";").map(l => l.trim()).filter(Boolean);
 
-    if (!species.length) return "-";
+    const pairs = species.map((sp, i) => ({
+      species: sp,
+      link: links[i] || ""
+    }));
 
-    const links = (linkStr || "").split(";").map(l => l.trim());
-
-    const renderOne = (sp, i) => {
-      const label = escapeHtml(sp);
-      const link  = links[i] || "";
+    const renderOne = ({ species, link }) => {
+      const label = escapeHtml(species);
       return link
         ? `<a href="${escapeHtml(link)}" target="_blank" rel="noopener">${label}</a>`
         : label;
     };
 
-    if (species.length <= maxVisible) {
-      return species.map(renderOne).join(",<br>");
+    if (pairs.length <= maxVisible) {
+      return pairs.map(renderOne).join(",<br>");
     }
 
-    const visible = species.slice(0, maxVisible).map(renderOne).join(",<br>");
-    const hidden  = species.slice(maxVisible).map(renderOne).join(",<br>");
-    const moreCnt = species.length - maxVisible;
-
+    const visible = pairs.slice(0, maxVisible).map(renderOne).join(",<br>");
+    const hidden  = pairs.slice(maxVisible).map(renderOne).join(",<br>");
+    const moreCnt = pairs.length - maxVisible;
     const uid = `sp_${Math.random().toString(36).slice(2)}`;
 
     return `
