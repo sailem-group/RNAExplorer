@@ -8,7 +8,7 @@ This folder contains the Jupyter notebook needed to reproduce the analysis and f
 
 The following setup is used to conduct the analysis: 
 - Python 3.12.3
-- rna-fm 0.2.2 (see [![RNA-FM GitHub]] (https://github.com/ml4bio/RNA-FM#further-development--python-api) for further information regarding installation)
+- rna-fm 0.2.2 (see [RNA-FM GitHub] (https://github.com/ml4bio/RNA-FM#further-development--python-api) for further information regarding installation)
 - pandas 2.0.3
 - numpy 2.2.5
 - scipy 1.14.1
