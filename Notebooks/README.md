@@ -26,6 +26,7 @@ The following setup is used to conduct the analysis:
 
 The raw datasets used in this analysis can be obtained from the following publications, and their corresponding sites if available. 
 - siRNA: 
+
   Huesken D, Lange J, Mickanin C et al.. Design of a genome-wide siRNA library using an artificial neural network. Nat. Biotechnol. 2005; 23: 995–1001. https://doi.org/10.1038/nbt1118.
 
   Katoh T and Suzuki T. Specific residues at every third position of siRNA shape its efficient RNAi activity. Nucleic Acids Res. 2007; 35: e27. https://doi.org/10.1093/nar/gkl1120. 
@@ -33,13 +34,14 @@ The raw datasets used in this analysis can be obtained from the following public
   Sailem HZ, Rittscher J and Pelkmans L. KCML: a machine‐learning framework for inference of multi‐scale gene functions from genetic perturbation screens. Mol. Syst. Biol. 2020; 16: e9083. https://doi.org/10.15252/msb.20199083.
    
 - miRNA:  
+
   Griffiths-Jones S. The microRNA Registry. Nucleic Acids Res. 2004; 32: D109-111. https://doi.org/10.1093/nar/gkh023. 
 
   Kozomara A, Birgaoanu M and Griffiths-Jones S. miRBase: from microRNA sequences to function. Nucleic Acids Res. 2019; 47: D155–D162. https://doi.org/10.1093/nar/gky1141. 
 
   miRBase (Release 22.1): https://www.mirbase.org/
   
-- piRNA: 
+- piRNA:
 
   Kuksa PP, Amlie-Wolf A, Katanić Ž et al.. DASHR 2.0: integrated database of human small non-coding RNA genes and mature products. Bioinformatics 2019; 35: 1033–1039. https://doi.org/10.1093/bioinformatics/bty709. 
 
