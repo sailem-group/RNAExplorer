@@ -50,4 +50,5 @@ The raw datasets used in this analysis can be obtained from the following public
 Processed data used in the analysis can be found here:
 - Interpretable Features: RNAExplorer/Notebooks/Data
 - RNA-FM Embeddings: RNAExplorer/portal/data/embeddings/refs_embeddings.part{num}.npy, where num = 01 to 07
+
 Note that the sequence order in "refs_embeddings.part{num}.npy" follows the sequence order in RNAExplorer/portal/data/database.part{num}.csv. 
