@@ -47,5 +47,7 @@ The raw datasets used in this analysis can be obtained from the following public
 
   DASHR 2.0 hg38: https://dashr2.lisanwanglab.org/
 
-Processed data, including interpretable features and RNA-FM embeddings, used in the analysis can be found at: 
-https://doi.org/10.5281/zenodo.18124277. 
+Processed data used in the analysis can be found here:
+- Interpretable Features: RNAExplorer/Notebooks/Data
+- RNA-FM Embeddings: RNAExplorer/portal/data/embeddings/refs_embeddings.part{num}.npy, where num = 01 to 07
+Note that the sequence order in "refs_embeddings.part{num}.npy" follows the sequence order in RNAExplorer/portal/data/database.part{num}.csv. 
