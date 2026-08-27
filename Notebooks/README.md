@@ -47,6 +47,11 @@ The raw datasets used in this analysis can be obtained from the following public
 
   DASHR 2.0 hg38: https://dashr2.lisanwanglab.org/
 
+To reproduce the analysis from scratch, including random sampling to form Data-23K and Data-3K, the origin files can be found here in RNAExplorer/Notebooks/Data/ under
+- mirna_sequences_whole_species.csv
+- sirna_sequences_whole_antisense.csv
+- pirna_sequences_whole.csv
+
 Processed data used in the analysis can be found here:
 - Interpretable Features: RNAExplorer/Notebooks/Data
 - RNA-FM Embeddings: RNAExplorer/portal/data/embeddings/refs_embeddings.part{num}.npy, where num = 01 to 07
