@@ -31,7 +31,9 @@ SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "unsafe-dev-fallback-change-me")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv("DJANGO_DEBUG", "False") == "True"
 
-ALLOWED_HOSTS = [h.strip() for h in os.getenv("ALLOWED_HOSTS", "").split(",") if h.strip()]
+ALLOWED_HOSTS = [h.strip() for h in os.getenv(
+    "ALLOWED_HOSTS", "www.rnaexplorer.com,rnaexplorer.com"
+).split(",") if h.strip()]
 
 
 # Django is behind Nginx+HTTPS
