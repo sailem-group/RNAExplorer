@@ -836,10 +836,11 @@ def feature_lab(request):
                 "has_user": bool(has_user),
                 "banner": banner or ""
             })
+        # escape "</" so payload values can't prematurely close the <script> tag
         ctx = {
             "form": form,
-            "deep_payload_json": mark_safe(json.dumps(deep_payload)),
-            "interp_payload_json": mark_safe(json.dumps(interp_payload)),
+            "deep_payload_json": mark_safe(json.dumps(deep_payload).replace("</", "<\\/")),
+            "interp_payload_json": mark_safe(json.dumps(interp_payload).replace("</", "<\\/")),
             "has_user": has_user,
             "is_production": IS_PRODUCTION,
         }

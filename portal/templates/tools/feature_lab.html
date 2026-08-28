@@ -333,8 +333,10 @@
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/plotly.min.js"></script>
 <script type="module">
-  import Plotly from "https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/+esm";
+  // Plotly loaded via classic <script> above (window.Plotly); avoids jsDelivr's UA-sniffed +esm bundle breaking older browsers.
+  const Plotly = window.Plotly;
   window.IS_PRODUCTION = {{ is_production|yesno:"true,false" }};
   const CSV_COLUMNS = [
     ["type",       "Type"],

@@ -40,8 +40,9 @@ ALLOWED_HOSTS = [h.strip() for h in os.getenv(
 SESSION_ENGINE = "django.contrib.sessions.backends.signed_cookies"
 USE_X_FORWARDED_HOST = True
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
-SESSION_COOKIE_SECURE = True
-CSRF_COOKIE_SECURE = True
+# secure cookies require HTTPS; local/dev over plain http silently drops them, breaking CSRF
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = not DEBUG
 SESSION_COOKIE_PATH = "/"
 
 CSRF_TRUSTED_ORIGINS = [
