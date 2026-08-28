@@ -46,7 +46,7 @@ CSRF_COOKIE_SECURE = not DEBUG
 SESSION_COOKIE_PATH = "/"
 
 CSRF_TRUSTED_ORIGINS = [
-    o.strip() for o in os.getenv("CSRF_TRUSTED_ORIGINS", "").split(",") if o.strip()
+    o.strip() for o in os.getenv("CSRF_TRUSTED_ORIGINS", "https://www.rnaexplorer.com,https://rnaexplorer.com").split(",") if o.strip()
 ]
 
 # Django's default LOGGING drops WARNING-level 403/CSRF reasons when DEBUG=False;
