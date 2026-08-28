@@ -1,6 +1,7 @@
 # views.py (only the parts used by Feature Lab + help/about + downloads)
 
-import json, os, csv, glob, re, math
+import json, os, csv, glob, re, math, uuid
+from collections import OrderedDict
 import numpy as np
 from io import StringIO, BytesIO
 from itertools import product
@@ -38,6 +39,26 @@ MAX_MATCH_ROWS_TO_SEND = 2000
 MOST_MATCHING_SEQ_LIMIT = 100
 
 _RNAFM_SINGLETON = {"model": None, "alphabet": None, "emb_len": 640, "device": "cpu"}
+
+# SESSION_ENGINE is signed_cookies, so anything in request.session round-trips through
+# the Set-Cookie/Cookie header; large payloads (embeddings, feature rows) blow past
+# nginx's proxy_buffer_size and the browser's ~4KB per-cookie cap. Keep those out of
+# the cookie by storing them in this bounded process-local cache, referenced by a
+# small token in the session instead.
+_USER_DATA_CACHE = OrderedDict()
+_USER_DATA_CACHE_MAX = 200
+
+
+def _cache_put(payload):
+    token = uuid.uuid4().hex
+    _USER_DATA_CACHE[token] = payload
+    while len(_USER_DATA_CACHE) > _USER_DATA_CACHE_MAX:
+        _USER_DATA_CACHE.popitem(last=False)
+    return token
+
+
+def _cache_get(token):
+    return _USER_DATA_CACHE.get(token) if token else None
 
 IS_PRODUCTION = os.getenv("ENV", "").lower() == "production"
 
@@ -1129,7 +1150,7 @@ def feature_lab(request):
         }
 
         if has_user:
-            rows = request.session.get("extractor_results") or []
+            rows = (_cache_get(request.session.get("extractor_token")) or {}).get("results") or []
             if rows:
                 def vec_sel(r):
                     v = []
@@ -1295,7 +1316,7 @@ def feature_lab(request):
     pairs = list(items)
     U_emb = compute_rnafm_embeddings(pairs)
     U_arr = np.asarray(U_emb, np.float32) if U_emb else np.zeros((0, _RNAFM_SINGLETON["emb_len"]), np.float32)
-    request.session["feature_explorer_user_embeddings"] = U_arr.tolist()
+    request.session["feature_explorer_user_embeddings_token"] = _cache_put(U_arr.tolist())
 
     if Xd.shape[0] > 0:
         Yu = _knn_project(Xd, Yd, U_arr, k=50)
@@ -1329,14 +1350,16 @@ def feature_lab(request):
         rows.append(_round_feature_row(_flatten_feature_row(name, seq, detect_alphabet_simple(seq), feats), nd=4))
 
     letters = "ACGU" if any("U" in (r.get("sequence", "").upper()) for r in rows) else "ACGT"
-    request.session["extractor_results"] = rows
-    request.session["extractor_csv_meta"] = {
-        "letters": letters,
-        "k2_labels": _lexicokeys(letters, 2),
-        "k3_labels": _lexicokeys(letters, 3),
-        "base_headers": ["Name", "Sequence", "Length", "GC %", "GC skew", "AT/AU skew"],
-        "mnc_headers": [f"MNC {b}" for b in letters],
-    }
+    request.session["extractor_token"] = _cache_put({
+        "results": rows,
+        "csv_meta": {
+            "letters": letters,
+            "k2_labels": _lexicokeys(letters, 2),
+            "k3_labels": _lexicokeys(letters, 3),
+            "base_headers": ["Name", "Sequence", "Length", "GC %", "GC skew", "AT/AU skew"],
+            "mnc_headers": [f"MNC {b}" for b in letters],
+        },
+    })
 
     if Xi is not None and Xi.shape[0] and feat_names:
         if selected_feats:
@@ -1385,7 +1408,7 @@ def feature_lab(request):
 
 @require_GET
 def feature_explorer_download_embeddings(request):
-    data = request.session.get("feature_explorer_user_embeddings")
+    data = _cache_get(request.session.get("feature_explorer_user_embeddings_token"))
     if not data:
         return HttpResponse("No user embeddings to download.", status=400)
     arr = np.asarray(data, dtype=np.float32)
@@ -1399,8 +1422,9 @@ def feature_explorer_download_embeddings(request):
 
 @require_GET
 def feature_extractor_download(request):
-    rows = request.session.get("extractor_results") or []
-    meta = request.session.get("extractor_csv_meta") or {}
+    _extractor_cached = _cache_get(request.session.get("extractor_token")) or {}
+    rows = _extractor_cached.get("results") or []
+    meta = _extractor_cached.get("csv_meta") or {}
     if not rows:
         return HttpResponse("No results to download.", status=400)
 
