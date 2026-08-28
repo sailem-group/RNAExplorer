@@ -1,7 +1,6 @@
 # views.py (only the parts used by Feature Lab + help/about + downloads)
 
 import json, os, csv, glob, re, math, uuid
-from collections import OrderedDict
 import numpy as np
 from io import StringIO, BytesIO
 from itertools import product
@@ -11,6 +10,7 @@ from django.views.decorators.http import require_GET, require_http_methods
 from django.contrib import messages
 from django.views.decorators.csrf import csrf_protect, ensure_csrf_cookie
 from django.utils.safestring import mark_safe
+from django.core.cache import cache as django_cache
 from sklearn.neighbors import NearestNeighbors
 from functools import lru_cache
 from typing import Optional
@@ -43,22 +43,17 @@ _RNAFM_SINGLETON = {"model": None, "alphabet": None, "emb_len": 640, "device": "
 # SESSION_ENGINE is signed_cookies, so anything in request.session round-trips through
 # the Set-Cookie/Cookie header; large payloads (embeddings, feature rows) blow past
 # nginx's proxy_buffer_size and the browser's ~4KB per-cookie cap. Keep those out of
-# the cookie by storing them in this bounded process-local cache, referenced by a
-# small token in the session instead.
-_USER_DATA_CACHE = OrderedDict()
-_USER_DATA_CACHE_MAX = 200
-
-
+# the cookie by storing them in Django's shared cache (see CACHES in settings.py),
+# referenced by a small token in the session instead. Using the shared cache (not an
+# in-process dict) keeps this correct across multiple gunicorn workers and self-expires.
 def _cache_put(payload):
     token = uuid.uuid4().hex
-    _USER_DATA_CACHE[token] = payload
-    while len(_USER_DATA_CACHE) > _USER_DATA_CACHE_MAX:
-        _USER_DATA_CACHE.popitem(last=False)
+    django_cache.set(f"userdata:{token}", payload)
     return token
 
 
 def _cache_get(token):
-    return _USER_DATA_CACHE.get(token) if token else None
+    return django_cache.get(f"userdata:{token}") if token else None
 
 IS_PRODUCTION = os.getenv("ENV", "").lower() == "production"
 

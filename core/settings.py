@@ -49,6 +49,18 @@ CSRF_TRUSTED_ORIGINS = [
     o.strip() for o in os.getenv("CSRF_TRUSTED_ORIGINS", "https://www.rnaexplorer.com,https://rnaexplorer.com").split(",") if o.strip()
 ]
 
+# Shared across gunicorn workers (unlike an in-process dict) and self-expiring,
+# so short-lived per-request payloads (e.g. RNA-FM embeddings) don't leak into
+# the signed-cookie session. File-based avoids requiring Redis/Memcached.
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.filebased.FileBasedCache",
+        "LOCATION": os.getenv("DJANGO_CACHE_DIR", str(BASE_DIR / "var" / "django_cache")),
+        "TIMEOUT": 900,  # 15 min: long enough to click "download" after visualizing
+        "OPTIONS": {"MAX_ENTRIES": 5000},
+    }
+}
+
 # Django's default LOGGING drops WARNING-level 403/CSRF reasons when DEBUG=False;
 # surface them to stdout (journalctl) so failures are diagnosable in production.
 LOGGING = {
