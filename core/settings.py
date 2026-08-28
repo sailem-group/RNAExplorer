@@ -49,6 +49,20 @@ CSRF_TRUSTED_ORIGINS = [
     o.strip() for o in os.getenv("CSRF_TRUSTED_ORIGINS", "").split(",") if o.strip()
 ]
 
+# Django's default LOGGING drops WARNING-level 403/CSRF reasons when DEBUG=False;
+# surface them to stdout (journalctl) so failures are diagnosable in production.
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {
+        "console": {"class": "logging.StreamHandler"},
+    },
+    "loggers": {
+        "django.security.csrf": {"handlers": ["console"], "level": "WARNING", "propagate": False},
+        "django.request": {"handlers": ["console"], "level": "WARNING", "propagate": False},
+    },
+}
+
 FORCE_SCRIPT_NAME = "/"
 
 # Application definition
