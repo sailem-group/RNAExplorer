@@ -79,6 +79,7 @@ Only data currently visible in the interface are included in downloads.
 The RNAExplorer publication is underway.
 
 Please cite the publication available on BioRXiv:
+
 Leveraging Foundation Models for the Characterisation of Small RNA Properties
 Shivprasad Jamdade, Coyun Oh, Heba Sailem
 bioRxiv 2026.02.08.704350; doi: https://doi.org/10.64898/2026.02.08.704350
